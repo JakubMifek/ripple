@@ -4,55 +4,27 @@ ripple.py - Contains the ripple method for processing a wave audio object and re
 
 import wave
 import struct
-import statistics
 import math
 import numpy as np
-from utils import combine_channels
+from utils import combine_channels, create_waveform_svg, fit_polynomial_curve, fit_fourier_curve, smooth_waveform
 
-
-def ripple(
-    wf: wave.Wave_read,
-    smoothness: float = 0.0,
-    poly_degree: int = 10,
-    max_width: int = 2048,
-    height: int = 256,
-    fitting: str = 'fourier',
-) -> str:
-    """
-    Process the wave audio object and return an SVG string.
-    Args:
-        wf: wave.Wave_read object
-    Returns:
-        str: SVG content as a string
-    """
-
+def _get_wave_samples(wf: wave.Wave_read) -> tuple[list, object, int]:
     wf = combine_channels(wf)
-
     channels = wf.getnchannels() # Should be 1 after combining
     if channels != 1:
         raise ValueError("Expected mono audio after combining channels, but got multiple channels.")
-    
     sampwidth = wf.getsampwidth()
-    # framerate = wf.getframerate()
     nframes = wf.getnframes()
-
-    # print(f"Channels: {channels}")
-    # print(f"Sample width: {sampwidth}")
-    # print(f"Frame rate: {framerate}")
-    # print(f"Number of frames: {nframes}")
-    
-    # Extract amplitude time series (first 1024 samples for simplicity)
     wf.rewind()
-    num_samples = nframes # min(1024, nframes)
+    num_samples = nframes
     print(f"Reading {num_samples} samples from {nframes} total frames with {sampwidth}-bit depth.")
-
     frames = wf.readframes(num_samples)
-
-    # Only 16-bit PCM supported
     if sampwidth != 2:
         raise NotImplementedError("Only 16-bit PCM supported for waveform SVG.")
     samples = list(struct.unpack('<' + 'h' * num_samples, frames))
+    return samples, sampwidth, nframes
 
+def _scale_smoothness(smoothness: float) -> float:
     # Logarithmic scaling for smoothness
     if smoothness <= 0:
         scaled_smoothness = 0.0
@@ -62,16 +34,10 @@ def ripple(
         # Map 0 < s < 1 to a log scale: s' = 10**(-2 * (1-s))
         # s=0.5 -> 0.1, s=0.25 -> 0.01, s=0.75 -> 0.385, etc.
         scaled_smoothness = 1/math.pow(10, -1 * math.log2(smoothness))
-
     print(f"Smoothness: {smoothness} (scaled: {scaled_smoothness})")
+    return scaled_smoothness
 
-    # Smooth the waveform samples
-    smoothed = smooth_waveform(samples, scaled_smoothness)
-
-    svg_width = min(max_width, nframes)
-    svg_height = height
-
-    # Second round: extract local maxima and minima
+def _extract_extremes(smoothed):
     max_points = []
     min_points = []
     for i in range(1, len(smoothed) - 1):
@@ -79,6 +45,7 @@ def ripple(
             max_points.append((i, smoothed[i]))
         if smoothed[i] <= smoothed[i - 1] and smoothed[i] < smoothed[i + 1] or smoothed[i] < smoothed[i - 1] and smoothed[i] <= smoothed[i + 1]:
             min_points.append((i, smoothed[i]))
+
     # Always include endpoints
     if max_points and max_points[0][0] != 0:
         max_points = [(0, smoothed[0])] + max_points
@@ -89,73 +56,166 @@ def ripple(
     if min_points and min_points[-1][0] != len(smoothed) - 1:
         min_points.append((len(smoothed) - 1, smoothed[-1]))
 
+    return min_points, max_points
+
+def to_svg_points(indices, vals, svg_width, svg_height, smoothed):
+    return [(
+        int(i * svg_width / len(smoothed)),
+        int(svg_height // 2 - (v / (max(abs(s) for s in smoothed) or 1)) * (svg_height // 2 - 2))
+    ) for i, v in zip(indices, vals)]
+
+def _extract_midpoints(min_svg_points, max_svg_points):
+    """
+    Extract midpoints from the max and min points.
+    Returns a list of (x, y) tuples for the midpoints.
+    """
+    
+    mid_points = []
+    xs = sorted(set([x for x, _ in max_svg_points] + [x for x, _ in min_svg_points]))
+    min_dict = dict(min_svg_points)
+    max_dict = dict(max_svg_points)
+    
+    for x in xs:
+        if x in min_dict and x in max_dict:
+            mid_points.append((x, (min_dict[x] + max_dict[x]) // 2))
+        elif x in min_dict:
+            mid_points.append((x, (mid_points[-1][1] + min_dict[x]) // 2))
+        elif x in max_dict:
+            mid_points.append((x, (mid_points[-1][1] + max_dict[x]) // 2))
+    
+    print(f"Found {len(mid_points)} mid points for fitting.")
+    
+    return mid_points
+
+def _path_to_circle(fit_points, svg_width, svg_height):
+    print(f"Mapping fitted curve to circle with {len(fit_points)} points.")
+    r_min = 0.75
+    r_max = 1.00
+    center_to_corner = True
+    circle_points = curve_to_circle(fit_points, svg_width, svg_height, r_min=r_min, r_max=r_max, center_to_corner=center_to_corner)
+    circle_path = create_svg_path(circle_points, close_path=True)
+    # Draw the base circle (average radius), centered at top-left
+    base_r = min(svg_width, svg_height) / 2
+    avg_r = ((r_min + r_max) / 2) * base_r
+    if center_to_corner:
+        cx = base_r
+        cy = base_r
+    else:
+        cx = svg_width / 2
+        cy = svg_height / 2
+    base_circle_svg = f'M {cx + avg_r},{cy} ' \
+        f'A {avg_r},{avg_r} 0 1,0 {cx - avg_r},{cy} ' \
+        f'A {avg_r},{avg_r} 0 1,0 {cx + avg_r},{cy}'
+    return circle_points, circle_path, base_circle_svg
+
+def ripple(
+    wf: wave.Wave_read,
+    smoothness: float = 0.0,
+    poly_degree: int = 10,
+    max_width: int = 2048,
+    height: int = 256,
+    fitting: str = 'fourier',
+) -> tuple[str, str]:
+    """
+    Process the wave audio object and return two SVG strings.
+    Args:
+        wf: wave.Wave_read object
+    Returns:
+        Tuple[str, str]: (processing SVG, circular SVG)
+    """
+
+    # --- Extract amplitude time series ---
+    samples, sampwidth, nframes = _get_wave_samples(wf)
+    num_samples = nframes
+    frames = wf.readframes(num_samples)
+
+    # Only 16-bit PCM supported
+    if sampwidth != 2:
+        raise NotImplementedError("Only 16-bit PCM supported for waveform SVG.")
+    samples = list(struct.unpack('<' + 'h' * num_samples, frames))
+
+    # --- Scale smoothness ---
+    scaled_smoothness = _scale_smoothness(smoothness)
+
+    # Smooth the waveform samples
+    print(f"Smoothing waveform with smoothness: {scaled_smoothness}")
+    smoothed = smooth_waveform(samples, scaled_smoothness)
+
+    # Second round: extract local maxima and minima
+    min_points, max_points = _extract_extremes(smoothed)
+
     # Smooth the max and min points (optional: use a fixed window for envelope)
+    print(f"Smoothing max/min points with smoothness: {scaled_smoothness / 2}")
     max_indices, max_vals = zip(*max_points) if max_points else ([], [])
     min_indices, min_vals = zip(*min_points) if min_points else ([], [])
     max_vals_smooth = smooth_waveform(list(max_vals), scaled_smoothness / 2) if max_vals else []
     min_vals_smooth = smooth_waveform(list(min_vals), scaled_smoothness / 2) if min_vals else []
 
     # Map to SVG coordinates
-    def to_svg_points(indices, vals):
-        return [(
-            int(i * svg_width / len(smoothed)),
-            int(svg_height // 2 - (v / (max(abs(s) for s in smoothed) or 1)) * (svg_height // 2 - 2))
-        ) for i, v in zip(indices, vals)]
-
-    max_svg_points = to_svg_points(max_indices, max_vals_smooth) if max_vals else []
-    min_svg_points = to_svg_points(min_indices, min_vals_smooth) if min_vals else []
-
-    # Collect SVG path strings
-    svg_paths = []
-    # Main waveform
+    svg_width = min(max_width, nframes)
+    svg_height = height
+    max_svg_points = to_svg_points(max_indices, max_vals_smooth, svg_width, svg_height, smoothed) if max_vals else []
+    min_svg_points = to_svg_points(min_indices, min_vals_smooth, svg_width, svg_height, smoothed) if min_vals else []
+    # Main waveform (processing only)
     waveform_path = create_svg_path([
         (int(i * svg_width / len(smoothed)),
          int(svg_height // 2 - (v / (max(abs(s) for s in smoothed) or 1)) * (svg_height // 2 - 2)))
         for i, v in enumerate(smoothed)
     ])
-    svg_paths.append({'d': waveform_path, 'stroke': 'gray', 'stroke_width': 1})
 
-    # Envelope paths
-    if max_svg_points and min_svg_points:
-        max_path = create_svg_path(max_svg_points)
-        min_path = create_svg_path(min_svg_points)
-        svg_paths.append({'d': max_path, 'stroke': 'red', 'stroke_width': 1})
-        svg_paths.append({'d': min_path, 'stroke': '#023e8a', 'stroke_width': 1})
+    # Collect SVG path strings for processing (non-circular) and circular SVGs
+    processing_paths = [{'d': waveform_path, 'stroke': 'gray', 'stroke_width': 1}]
+    circular_paths = []
 
-        # Use the average of the min and max y for each x present in both
-        xs = sorted(set([x for x, _ in max_svg_points] + [x for x, _ in min_svg_points]))
-        min_dict = dict(min_svg_points)
-        max_dict = dict(max_svg_points)
-        mid_points = []
-        for x in xs:
-            y_vals = []
-            if x in min_dict:
-                y_vals.append(min_dict[x])
-            if x in max_dict:
-                y_vals.append(max_dict[x])
-            if y_vals and len(y_vals) > 1:
-                y = sum(y_vals) // len(y_vals)
-                mid_points.append((x, y))
+    # Envelope paths (processing only)
+    max_path = create_svg_path(max_svg_points)
+    min_path = create_svg_path(min_svg_points)
+    processing_paths.append({'d': max_path, 'stroke': 'red', 'stroke_width': 1})
+    processing_paths.append({'d': min_path, 'stroke': '#023e8a', 'stroke_width': 1})
 
-        if len(mid_points) >= 4:
-            # Use fitting method from parameter
-            if fitting == 'poly':
-                poly_points = fit_polynomial_curve(mid_points, poly_degree)
-                poly_path = create_svg_path(poly_points)
-                svg_paths.append({'d': poly_path, 'stroke': 'green', 'stroke_width': 1})
-            elif fitting == 'fourier':
-                fourier_points = fit_fourier_curve(mid_points, n_terms=poly_degree)
-                fourier_path = create_svg_path(fourier_points)
-                svg_paths.append({'d': fourier_path, 'stroke': 'orange', 'stroke_width': 1})
-            else:
-                raise ValueError(f"Unknown fitting method: {fitting}")
+    # Use the average of the min and max y for each x present in both
+    mid_points = _extract_midpoints(min_svg_points, max_svg_points)
 
-    # Compose SVG at the end
-    return create_waveform_svg(svg_width, svg_height, svg_paths)
+    if len(mid_points) < 4:
+        raise ValueError("Not enough mid points for fitting. Need at least 4 points.")
+    
+    # Use fitting method from parameter
+    if fitting == 'poly':
+        fit_points = fit_polynomial_curve(mid_points, poly_degree)
+        color = 'green'
+    elif fitting == 'fourier':
+        fit_points = fit_fourier_curve(mid_points, n_terms=poly_degree)
+        color = 'orange'
+    else:
+        raise ValueError(f"Unknown fitting method: {fitting}")
 
-def create_svg_path(points):
+    # Draw the fitted curve as a path before circular mapping (processing only)
+    fit_path = create_svg_path(fit_points, close_path=False)
+    processing_paths.append({'d': fit_path, 'stroke': color, 'stroke_width': 1})
+
+    # Map fitted curve to circle (circular SVG only), with center at top-left
+    circle_points, circle_path, base_circle_svg = _path_to_circle(fit_points, svg_width, svg_height)
+    circular_paths.append({'d': base_circle_svg, 'stroke': '#888', 'stroke_width': 1})
+    circular_paths.append({'d': circle_path, 'stroke': color, 'stroke_width': 1})
+
+    # Mark beginning of the sound curve on the circle (circular SVG only)
+    if circle_points:
+        start_x, start_y = circle_points[0]
+        circular_paths.append({'d': f'M {start_x},{start_y} m -4,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0', 'stroke': 'none', 'stroke_width': 0, 'fill': 'lime'})
+
+    # Compose SVGs at the end
+    print(f"Creating SVGs with width {svg_width} and height {svg_height}.")
+    processing_svg = create_waveform_svg(svg_width, svg_height, processing_paths)
+    shorter_side = min(svg_width, svg_height)
+    circular_svg = create_waveform_svg(shorter_side, shorter_side, circular_paths)
+    return processing_svg, circular_svg
+
+def create_svg_path(points, close_path=False):
     if len(points) < 3:
-        return 'M ' + ' L '.join(f"{x},{y}" for x, y in points)
+        path = 'M ' + ' L '.join(f"{x},{y}" for x, y in points)
+        if close_path:
+            path += ' Z'
+        return path
     def control_points(p0, p1, p2, t=0.2):
         d01 = ((p1[0] - p0[0]), (p1[1] - p0[1]))
         d12 = ((p2[0] - p1[0]), (p2[1] - p1[1]))
@@ -169,87 +229,48 @@ def create_svg_path(points):
         p2 = points[i + 1]
         c1, c2 = control_points(p0, p1, p2)
         path_data += f" C {c1[0]},{c1[1]} {c2[0]},{c2[1]} {p2[0]},{p2[1]}"
+    if close_path:
+        path_data += ' Z'
     return path_data
 
-def create_waveform_svg(svg_width, svg_height, svg_paths):
-    svg_content = f'<svg width="{svg_width}" height="{svg_height}" xmlns="http://www.w3.org/2000/svg">'
-    for path in svg_paths:
-        svg_content += f'<path d="{path["d"]}" fill="none" stroke="{path["stroke"]}" stroke-width="{path["stroke_width"]}"/>'
-    svg_content += '</svg>'
-    return svg_content
-
-def smooth_waveform(samples: list, smoothness: float) -> list:
+def curve_to_circle(points, width, height, r_min=0.5, r_max=0.75, center_to_corner=False):
     """
-    Smooth the waveform samples based on the specified smoothness.
-    Args:
-        samples: List of audio samples
-        smoothness: Float between 0 and 1 indicating smoothness level
-    Returns:
-        List of smoothed samples
+    Map a list of (x, y) points to a circle.
+    The x axis is mapped to angle, y to radius modulation.
+    r_min and r_max are relative to min(width, height)/2.
+    If center_to_corner is True, the circle is centered at (base_r, base_r) (top-left), else at (width/2, height/2).
+    Returns list of (cx, cy) points.
     """
-    
-    n = len(samples)
-    if smoothness <= 0:
-        return samples
-    elif smoothness >= 1:
-        avg = int(sum(samples) / n)
-        return [avg] * n
+    if not points:
+        return []
+    N = len(points)
+    # Normalize x to [0, 2pi]
+    xs = np.array([x for x, y in points])
+    ys = np.array([y for x, y in points])
+    x_min, x_max = xs.min(), xs.max()
+    x_norm = 2 * np.pi * (xs - x_min) / (x_max - x_min if x_max != x_min else 1)
+    # Normalize y to [0, 1]
+    y_min, y_max = ys.min(), ys.max()
+    y_norm = (ys - y_min) / (y_max - y_min if y_max != y_min else 1)
+    # Map to radius
+    base_r = min(width, height) / 2
+    r0 = r_min * base_r
+    r1 = r_max * base_r
+    radii = r0 + (r1 - r0) * y_norm
+    if center_to_corner:
+        cx = base_r
+        cy = base_r
     else:
-        smoothed = []
-        window = int(1 + smoothness * (n - 1))
-        if window % 2 == 0:
-            window += 1  # median filter window should be odd
+        cx = width / 2
+        cy = height / 2
+    circle_points = [
+        (
+            int(cx + r * np.cos(theta)),
+            int(cy + r * np.sin(theta))
+        )
+        for theta, r in zip(x_norm, radii)
+    ]
+    return circle_points
 
-        print(f"Window size for smoothing: {window}")
-        half = window // 2
 
-        for i in range(n):
-            # Cyclic window: wrap indices around the array
-            indices = [(i + j) % n for j in range(-half, half + 1)]
-            window_samples = [samples[idx] for idx in indices]
-            if len(window_samples) < 3:
-                smoothed.append(int(sum(window_samples) / len(window_samples)))
-            else:
-                smoothed.append(int(statistics.median(window_samples)))
-        return smoothed
-def fit_polynomial_curve(mid_points, poly_degree):
-    """
-    Fit a polynomial curve through the mid_points and return the fitted points.
-    """
-    margin = min(len(mid_points), 128)
-    x_vals = np.array(list(reversed([-x-mid_points[1][0] for x, y in mid_points[:margin]])) + [x for x, y in mid_points] + [mid_points[-1][0] + x for x, y in mid_points[:margin]])
-    y_vals = np.array([y for x, y in mid_points[len(mid_points) - margin:]] + [y for x, y in mid_points] + [y for x, y in mid_points[:margin]])
-    degree = min(poly_degree, len(mid_points) - 1)
-    coeffs = np.polyfit(x_vals, y_vals, degree)
-    poly = np.poly1d(coeffs)
-    poly_points = [(x, int(poly(x))) for x in x_vals[margin:-margin]]
-    return poly_points
 
-def fit_fourier_curve(mid_points, n_terms=10):
-    """
-    Fit a truncated Fourier series (sum of sines and cosines) to the mid_points.
-    Returns a list of (x, y) points for the fitted curve.
-    """
-    # Sort by x to ensure correct order
-    mid_points = sorted(mid_points, key=lambda p: p[0])
-    x_vals = np.array([x for x, y in mid_points])
-    y_vals = np.array([y for x, y in mid_points])
-    N = len(x_vals)
-    # Normalize x to [0, 2pi] for periodicity
-    x_norm = 2 * np.pi * (x_vals - x_vals[0]) / (x_vals[-1] - x_vals[0] if x_vals[-1] != x_vals[0] else 1)
-    # Build design matrix for least squares fit
-    A = [np.ones(N)]
-    for n in range(1, n_terms + 1):
-        A.append(np.sin(n * x_norm))
-        A.append(np.cos(n * x_norm))
-    A = np.vstack(A).T
-    coeffs, _, _, _ = np.linalg.lstsq(A, y_vals, rcond=None)
-    # Generate fitted curve (dense sampling for smoothness)
-    x_dense = np.linspace(x_vals[0], x_vals[-1], 4 * N)
-    x_dense_norm = 2 * np.pi * (x_dense - x_vals[0]) / (x_vals[-1] - x_vals[0] if x_vals[-1] != x_vals[0] else 1)
-    y_dense = coeffs[0] * np.ones_like(x_dense)
-    for n in range(1, n_terms + 1):
-        y_dense += coeffs[2 * n - 1] * np.sin(n * x_dense_norm)
-        y_dense += coeffs[2 * n] * np.cos(n * x_dense_norm)
-    fourier_points = [(int(x), int(y)) for x, y in zip(x_dense, y_dense)]
-    return fourier_points

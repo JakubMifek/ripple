@@ -29,9 +29,9 @@ def main():
     mode = Mode(args.mode)
     print(f"Input WAV: {args.input_wav}")
     print(f"Output SVG: {args.output_svg}")
-    print(f"Mode: {mode.value}")
+    print(f"Mode: {mode.value} (Smoothness: {args.smoothness}, Poly Degree: {args.poly_degree}, Max Width: {args.max_width}, Height: {args.height}, Fitting: {args.fitting})")
     with wave.open(args.input_wav, 'rb') as wf:
-        svg_content = ripple(
+        processing_svg, circular_svg = ripple(
             wf,
             smoothness=args.smoothness,
             poly_degree=args.poly_degree,
@@ -40,8 +40,11 @@ def main():
             fitting=args.fitting
         )
         with open(args.output_svg, 'w') as svg_file:
-            svg_file.write(svg_content)
+            svg_file.write(circular_svg)
         print(f"SVG written to {args.output_svg}")
+        with open('tmp.svg', 'w') as tmp_file:
+            tmp_file.write(processing_svg)
+        print("Processing SVG written to tmp.svg")
 
 if __name__ == "__main__":
     main()
