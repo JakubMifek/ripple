@@ -57,8 +57,8 @@ def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Merge and scale SVG paths from a directory into a single SVG and PNG.")
     parser.add_argument('directory', help='Directory containing SVG files')
-    parser.add_argument('--width', type=int, default=2048, help='Output SVG width (default: 512)')
-    parser.add_argument('--height', type=int, default=2048, help='Output SVG height (default: 512)')
+    parser.add_argument('--width', type=int, default=4096, help='Output SVG width (default: 4096)')
+    parser.add_argument('--height', type=int, default=4096, help='Output SVG height (default: 4096)')
     parser.add_argument('--output', type=str, default='output/merged.svg', help='Output SVG filename (default: merged.svg)')
     parser.add_argument('--png', type=str, default='output/merged.png', help='Output PNG filename (default: merged.png)')
     args = parser.parse_args()

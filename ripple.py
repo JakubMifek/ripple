@@ -242,6 +242,8 @@ def ripple(
     max_width: int = 2048,
     height: int = 256,
     fitting: str = 'fourier',
+    color: str = 'orange',
+    circle: bool = False
 ) -> tuple[str, str]:
     """
     Process the wave audio object and return two SVG strings: a linear (processing) SVG and a circular SVG.
@@ -306,22 +308,22 @@ def ripple(
         raise ValueError("Not enough mid points for fitting. Need at least 4 points.")
 
     # --- Use fitting method from parameter ---
+
     if fitting == 'poly':
         fit_points = fit_polynomial_curve(mid_points, poly_degree)
-        color = 'green'
     elif fitting == 'fourier':
         fit_points = fit_fourier_curve(mid_points, n_terms=poly_degree)
-        color = 'orange'
     else:
         raise ValueError(f"Unknown fitting method: {fitting}")
 
     # --- Draw the fitted curve as a path before circular mapping (processing only) ---
     fit_path = create_svg_path(fit_points, close_path=False)
-    processing_paths.append({'d': fit_path, 'stroke': color, 'stroke_width': 1})
+    processing_paths.append({'d': fit_path, 'stroke': 'orange', 'stroke_width': 1})
 
     # --- Map fitted curve to circle (circular SVG only), with center at top-left ---
     _, circle_path, base_circle_svg = _path_to_circle(fit_points, svg_width, svg_height)
-    circular_paths.append({'d': base_circle_svg, 'stroke': '#888', 'stroke_width': 1})
+    if circle:
+      circular_paths.append({'d': base_circle_svg, 'stroke': '#888', 'stroke_width': 1})
     circular_paths.append({'d': circle_path, 'stroke': color, 'stroke_width': 1})
 
     # --- Mark beginning of the sound curve on the circle (circular SVG only) ---
