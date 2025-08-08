@@ -36,8 +36,10 @@ def get_svg_size(svg_file: str) -> tuple[int, int]:
         return int(float(val))
     return parse_dim(width), parse_dim(height)
 
-def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float) -> None:
+def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float, thickness: int) -> None:
     """Scale the d attribute of a path element by scale_x and scale_y using svgpathtools."""
+    # Set thickness
+    path_elem.attrib['stroke-width'] = str(thickness)  # Scale thickness by x factor
     d_str = path_elem.attrib['d']
     path = parse_path(d_str)
     # Ensure path is always a Path object (not a single segment)
@@ -60,6 +62,7 @@ def main():
     parser.add_argument('--width', type=int, default=4096, help='Output SVG width (default: 4096)')
     parser.add_argument('--height', type=int, default=4096, help='Output SVG height (default: 4096)')
     parser.add_argument('--output', type=str, default='output/merged.svg', help='Output SVG filename (default: merged.svg)')
+    parser.add_argument('--thickness', type=int, default=2, help='Stroke thickness for the SVG paths (default: 2)')
     parser.add_argument('--png', type=str, default='output/merged.png', help='Output PNG filename (default: merged.png)')
     args = parser.parse_args()
 
@@ -81,7 +84,7 @@ def main():
         scale_x = args.width / orig_w
         scale_y = args.height / orig_h
         for path in paths:
-            scale_path(path, scale_x, scale_y)
+            scale_path(path, scale_x, scale_y, args.thickness)
             all_paths.append(path)
 
     # Create merged SVG
