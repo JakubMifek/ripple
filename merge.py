@@ -1,14 +1,10 @@
 
 import os
 import argparse
+import sys
 import xml.etree.ElementTree as ET
 from typing import List
 from svgpathtools import parse_path, Path
-
-try:
-    import cairosvg
-except ImportError:
-    cairosvg = None
 
 def parse_svg_paths(svg_file: str) -> List[ET.Element]:
     """Parse all <path> elements from an SVG file."""
@@ -46,7 +42,7 @@ def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float, thickness:
     if not isinstance(path, Path):
         path = Path(path)
     # Use svgpathtools' built-in scaling for the whole path
-    scaled_path = path.scaled(scale_x, scale_y)
+    scaled_path = path.scaled(scale_x, scale_y, origin=0j)
     # Ensure scaled_path is a Path object
     if not isinstance(scaled_path, Path):
         scaled_path = Path(scaled_path)
@@ -56,31 +52,58 @@ def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float, thickness:
     else:
         path_elem.attrib['d'] = ''.join(seg.d() for seg in scaled_path)
 
-def main():
+def export_png(svg_path, png_path, width, height, required=False):
+    """Missing Python/native Cairo is optional only for the implicit default export."""
+    try:
+        import cairosvg
+    except (ImportError, OSError) as error:
+        if required:
+            raise RuntimeError(f"PNG requested but CairoSVG/native Cairo is unavailable: {error}") from error
+        print(f"Warning: PNG export skipped; CairoSVG/native Cairo unavailable: {error}", file=sys.stderr)
+        return False
+    try:
+        cairosvg.svg2png(url=str(svg_path), write_to=str(png_path),
+                        output_width=width, output_height=height)
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f"PNG rendering failed: {error}") from error
+    return True
+
+
+def _main(argv=None):
     parser = argparse.ArgumentParser(description="Merge and scale SVG paths from a directory into a single SVG and PNG.")
     parser.add_argument('directory', help='Directory containing SVG files')
     parser.add_argument('--width', type=int, default=4096, help='Output SVG width (default: 4096)')
     parser.add_argument('--height', type=int, default=4096, help='Output SVG height (default: 4096)')
-    parser.add_argument('--output', type=str, default='output/merged.svg', help='Output SVG filename (default: merged.svg)')
+    parser.add_argument('--output', type=str, required=True, help='Explicit output SVG filename, outside the input directory')
     parser.add_argument('--thickness', type=int, default=2, help='Stroke thickness for the SVG paths (default: 2)')
-    parser.add_argument('--png', type=str, default='output/merged.png', help='Output PNG filename (default: merged.png)')
-    args = parser.parse_args()
+    parser.add_argument('--png', type=str, help='Explicit PNG filename (failure is an error); implicit default: OUTPUT_STEM.png')
+    parser.add_argument('--no-png', action='store_true', help='Only write SVG')
+    args = parser.parse_args(argv)
+    if args.width <= 0 or args.height <= 0 or args.thickness <= 0:
+        parser.error("Dimensions and thickness must be positive.")
+    if args.no_png and args.png:
+        parser.error("--png and --no-png cannot be combined.")
+    if os.path.dirname(os.path.abspath(args.output)) == os.path.abspath(args.directory):
+        parser.error("Keep merged output outside the input directory.")
+    png = args.png or os.path.splitext(args.output)[0] + ".png"
+    if not args.no_png and os.path.abspath(png) == os.path.abspath(args.output):
+        parser.error("SVG and PNG outputs must be distinct.")
 
-    svg_files = [os.path.join(args.directory, f) for f in os.listdir(args.directory) if f.lower().endswith('.svg')]
+    svg_files = sorted(os.path.join(args.directory, f) for f in os.listdir(args.directory) if f.lower().endswith('.svg'))
     if not svg_files:
-        print('No SVG files found in directory.')
-        return
+        parser.error('No SVG files found in directory.')
+    if not args.no_png and os.path.abspath(png) in {os.path.abspath(p) for p in svg_files}:
+        parser.error("PNG output must not overwrite an input SVG.")
 
     all_paths = []
     for svg_file in svg_files:
         paths = parse_svg_paths(svg_file)
         if not paths:
-            continue
+            parser.error(f"No SVG paths found in {svg_file}.")
         # Get original SVG size for scaling
         orig_w, orig_h = get_svg_size(svg_file)
-        if orig_w == 0 or orig_h == 0:
-            print(f'Warning: Could not determine size for {svg_file}, skipping.')
-            continue
+        if orig_w <= 0 or orig_h <= 0:
+            parser.error(f'Could not determine positive size for {svg_file}.')
         scale_x = args.width / orig_w
         scale_y = args.height / orig_h
         for path in paths:
@@ -98,13 +121,20 @@ def main():
     print(f'Merged SVG written to {args.output}')
 
     # Export to PNG if cairosvg is available
-    if cairosvg:
-        with open(args.output, 'rb') as f:
-            svg_data = f.read()
-        cairosvg.svg2png(bytestring=svg_data, write_to=args.png, output_width=args.width, output_height=args.height)
-        print(f'Merged PNG written to {args.png}')
-    else:
-        print('cairosvg not installed, PNG export skipped.')
+    if not args.no_png:
+        try:
+            if export_png(args.output, png, args.width, args.height, required=args.png is not None):
+                print(f'Merged PNG written to {png}')
+        except RuntimeError as error:
+            parser.exit(2, f"Merge error: {error}\n")
+
+
+def main(argv=None):
+    try:
+        _main(argv)
+    except (OSError, ValueError, ET.ParseError) as error:
+        raise SystemExit(f"Merge error: {error}") from error
+
 
 if __name__ == '__main__':
     main()

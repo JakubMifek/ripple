@@ -1,56 +1,52 @@
-"""
-main.py - Entry point for the Ripple sound wave project.
-"""
+"""Single-recording Ripple CLI."""
 
-
-import wave
 import argparse
-from enum import Enum
+from pathlib import Path
+import wave
+from config import add_render_arguments, config_from_args
+from pitch import load_pitch
 from ripple import ripple
 
 
-class Mode(Enum):
-    RIPPLE = 'Ripple'
+def render_file(input_wav, settings, pitch_path=None):
+    method = settings["render"]["algorithm"]
+    if method == "energy-pitch" and pitch_path is None:
+        raise ValueError("energy-pitch requires --pitch with known ground truth; pitch is never estimated.")
+    if method != "energy-pitch" and pitch_path is not None:
+        raise ValueError("--pitch is only valid for energy-pitch.")
+    with wave.open(str(input_wav), "rb") as wf:
+        pitch = load_pitch(pitch_path, input_wav, wf.getframerate(), wf.getnframes()) if pitch_path else None
+        return ripple(wf, settings=settings, pitch_data=pitch)
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Ripple: Sound wave to SVG tool.")
-    parser.add_argument('input_wav', type=str, help='Input WAV file name')
-    parser.add_argument('output_svg', type=str, help='Output SVG file name')
-    parser.add_argument('--mode', type=str, choices=[mode.value for mode in Mode], default=Mode.RIPPLE.value, help='Mode of operation (default: Ripple)')
-    parser.add_argument('--smoothness', type=float, default=0.3333, help='Waveform smoothness (0=raw, 1=flat line, 0.5=medium, default=0.3)')
-    parser.add_argument('--poly-degree', type=int, default=16, help='Degree of polynomial for center curve (default: 16)')
-    parser.add_argument('--max-width', type=int, default=16384, help='Maximum SVG width (default: 16384)')
-    parser.add_argument('--height', type=int, default=2048, help='SVG height (default: 2048)')
-    parser.add_argument('--fitting', type=str, choices=['fourier', 'poly'], default='fourier', help='Curve fitting method: fourier or poly (default: fourier)')
-    parser.add_argument('--color', type=str, default='orange', help='Color of the output curve (default: orange, accepts any SVG color)')
-    parser.add_argument('--circle', action='store_true', help='If set, output the perfect circle as the SVG. Otherwise, output the waveform curve.')
-    return parser.parse_args()
 
-def main():
-    args = parse_args()
-    mode = Mode(args.mode)
-    print(f"Input WAV: {args.input_wav}")
-    print(f"Output SVG: {args.output_svg}")
-    print(f"Mode: {mode.value} (Smoothness: {args.smoothness}, Poly Degree: {args.poly_degree}, Max Width: {args.max_width}, Height: {args.height}, Fitting: {args.fitting})")
-    with wave.open(args.input_wav, 'rb') as wf:
-        processing_svg, circular_svg = ripple(
-            wf,
-            smoothness=args.smoothness,
-            poly_degree=args.poly_degree,
-            max_width=args.max_width,
-            height=args.height,
-            fitting=args.fitting,
-            color=args.color,
-            circle=args.circle
-        )
-        
-        with open(args.output_svg, 'w+') as svg_file:
-            svg_file.write(circular_svg)
-        print(f"Circle SVG written to {args.output_svg}")
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Ripple: spoken-word keepsake curves (16-bit PCM WAV).")
+    parser.add_argument("input_wav", type=Path)
+    parser.add_argument("output_svg", type=Path)
+    add_render_arguments(parser)
+    parser.add_argument("--pitch", type=Path, help="Versioned, WAV-bound known-ground-truth JSON (energy-pitch only)")
+    parser.add_argument("--diagnostic", type=Path, help="Diagnostic SVG override; default: OUTPUT_STEM.diagnostic.svg")
+    return parser, parser.parse_args(argv)
 
-        with open('tmp.svg', 'w+') as tmp_file:
-            tmp_file.write(processing_svg)
-        print("Processing SVG written to tmp.svg")
+
+def main(argv=None):
+    parser, args = parse_args(argv)
+    try:
+        settings = config_from_args(args)
+        diagnostic = args.diagnostic or args.output_svg.with_suffix(".diagnostic.svg")
+        protected = {args.input_wav.resolve(), Path(__file__).with_name("ripple.toml").resolve()}
+        protected.update(p.resolve() for p in (args.config, args.pitch) if p is not None)
+        if args.output_svg.resolve() == diagnostic.resolve() or any(
+                p.resolve() in protected for p in (args.output_svg, diagnostic)):
+            raise ValueError("Artwork and diagnostic outputs must be distinct and must not overwrite inputs/configuration.")
+        processing, circular = render_file(args.input_wav, settings, args.pitch)
+        # Parent directories remain explicit; do not silently create misspelled destinations.
+        args.output_svg.write_text(circular, encoding="utf-8")
+        diagnostic.write_text(processing, encoding="utf-8")
+    except (ValueError, OSError, wave.Error) as error:
+        parser.exit(2, f"Ripple error: {error}\n")
+    print(f"Artwork: {args.output_svg}\nDiagnostic: {diagnostic}")
+
 
 if __name__ == "__main__":
     main()

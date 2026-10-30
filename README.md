@@ -1,127 +1,202 @@
+# Ripple: a spoken word, a personal curve
 
-# Ripple: Sound Wave to SVG Visualizer
+Ripple turns a recorded name or word into a rounded, **closed circular SVG**.
+Several words can be overlapped on **the same nominal circle diameter and
+center**, rather than fitted individually or arranged in a grid. This is an
+artistic keepsake of an utterance, **not a unique biometric signature**.
+Beauty, recognizability and tattoo suitability require human judgment.
 
-**Ripple** is a Python tool for transforming audio waveforms (WAV files) into beautiful SVG visualizations. It is designed for artists, educators, and anyone interested in exploring the structure of sound through visual art. The project also provides utilities for merging and scaling SVGs, making it easy to create composite visualizations.
+## Setup
 
-## What does Ripple do?
-
-- Converts mono or stereo WAV files into SVG images representing the waveform and its mathematical envelope.
-- Supports both linear (waveform) and circular (radial) SVG visualizations.
-- Allows customization of the output curve color, smoothness, fitting method, and more.
-- Can batch-process multiple audio files and merge their SVGs into a single composite image.
-
-## Features
-
-- **Waveform to SVG**: Extracts the amplitude envelope and fits it using polynomial or Fourier methods.
-- **Circular Mapping**: Maps the fitted curve onto a circle for unique radial visualizations.
-- **Customizable Output**: Choose color, smoothness, fitting method, SVG size, and whether to output the perfect circle with the waveform.
-- **Batch Processing**: Use shell scripts to process many files in parallel.
-- **SVG Merging**: Merge and scale multiple SVGs into a single SVG/PNG for comparison or collage.
-
----
-
-## Getting Started
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/JakubMifek/ripple.git
-   cd ripple
-   ```
-
-2. **Set up a virtual environment (recommended):**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
----
-
-## Usage
-
-### 1. Convert a WAV file to SVG
+Python **3.11+** (standard-library TOML), NumPy and svgpathtools:
 
 ```bash
-python main.py <input_wav> <output_svg> [options]
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+python3 main.py --help
+python3 compare.py --help
 ```
 
-#### Options
+CairoSVG is included for optional PNG export in `merge.py`; it also needs
+native Cairo. Missing Python/native Cairo produces an explicit warning when
+PNG export is implicit. An explicit `--png` request fails if it cannot render.
+SVG generation does not need Cairo. Use `--no-png` for SVG-only merging.
 
-- `--mode`: Mode of operation (default: Ripple, no other available atm)
-- `--smoothness`: Waveform smoothing (0=raw, 1=flat, default: 0.3333)
-- `--poly-degree`: Degree/terms for polynomial/Fourier fitting (default: 16)
-- `--max-width`: Maximum SVG width (default: 4096)
-- `--height`: SVG height (default: 512)
-- `--fitting`: Curve fitting method: `fourier` or `poly` (default: fourier)
-- `--color`: Color of the output curve (default: orange, accepts any SVG color)
-- `--circle`: If set, adds a perfect circle as SVG to the outputted waveform; otherwise, output only the waveform curve
-
-#### Usage Example
+## One recording
 
 ```bash
-python main.py samples/HelloWorld.wav output_samples/HelloWorld.svg --color "#00aaff" --circle
+mkdir -p artwork
+python3 main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
+python3 main.py samples/HelloWorld.wav artwork/baseline.svg \
+  --algorithm baseline --smoothness 0 --poly-degree 4 --circle
 ```
 
-This will generate a circular SVG visualization of `HelloWorld.wav` with a blue curve.
+Only uncompressed **16-bit PCM WAV** is accepted. All channels are averaged
+in floating point. All methods remove DC, trim surrounding silence
+conservatively and normalize peak gain. Internal pauses and relative timing
+are retained. Shared preprocessing intentionally changes old baseline images.
+Empty, silent, DC-only, truncated and insufficient inputs fail explicitly.
 
----
+| Algorithm | What shapes the curve |
+|---|---|
+| `baseline` (default) | Cyclic median of the signed waveform, extrema and legacy recursive midpoints; Fourier or polynomial fit |
+| `energy` | Short-time RMS, power-law dynamic-range compression, normalized utterance time |
+| `energy-timbre` | Energy plus weighted **relative spectral-band energies**, energy-gated to avoid decorating silence |
+| `energy-pitch` | Energy plus **externally supplied known ground truth**: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
 
-### 2. Batch Processing and Merging
+No pitch is ever detected or estimated. Natural-speech recordings generally
+cannot supply exact ground truth; the existing speech samples demonstrate only
+the first three methods. Read the [pitch input guide](docs/pitch-input.md)
+before using `--algorithm energy-pitch --pitch FILE.pitch.json`.
 
-You can process multiple WAV files in parallel and merge their SVGs using the provided `names.sh` script:
+The artwork is always circular. `--circle` **adds** a gray nominal reference
+circle; it does not replace the word. `--no-circle` overrides configuration.
+The output is square with side `min(max_width, height)`, independent of audio
+duration. Default width/height are **16384 / 2048**; default nominal diameter is
+80% of that square's side, with up to 18% radial deformation about the nominal
+radius. Stroke width is in SVG user units. These are scalable exports, not
+fixed physical tattoo dimensions or a claim of tattoo readiness.
+
+Each conversion writes `OUTPUT_STEM.diagnostic.svg` beside the artwork,
+or the path specified with `--diagnostic`. It no longer writes shared
+`tmp.svg`: parallel conversions with distinct output stems are isolated.
+Parent directories must exist. Diagnostics contain the processed waveform,
+baseline envelopes or energy/band features, and the pre-periodic fitted profile.
+
+## Configuration and artistic controls
+
+All defaults live in versioned [`ripple.toml`](ripple.toml), beside the scripts.
+Precedence is **project defaults -> explicitly selected `--config` -> CLI**.
+No configuration is discovered in the working directory. An override may
+contain a subset of settings but must declare `version = 1`; unknown settings,
+wrong types, nonfinite values and unsupported combinations fail.
+
+```toml
+version = 1
+[render]
+algorithm = "energy-timbre"
+height = 1024
+color = "black"
+stroke_width = 2.0
+detail = 12
+roundness = 0.8
+deformation = 0.12
+```
 
 ```bash
-bash names.sh
+python3 main.py samples/HelloWorld.wav artwork/custom.svg --config custom.toml --color navy
 ```
 
-The script will:
+`--poly-degree` (alias `--detail`) controls harmonic count or baseline
+polynomial degree. **Detail is separate from deformation and roundness**:
+`--deformation 0` gives a circle; `--roundness` attenuates high harmonics.
+`render.points` controls cubic approximation density (at least eight per
+harmonic). Profiles are bounded without stretching tiny residuals to full
+deformation. Analytic periodic derivatives give connected, matching tangents,
+including the seam. Coordinates stay floating point and export dimensions do
+not influence extraction.
 
-- Convert each WAV file in `samples/` to an SVG in `output_names/` with a specified color and style.
-- Wait for all conversions to finish.
-- Merge all SVGs in `output_names/` into a single composite SVG and PNG using `merge.py`.
+`--fitting poly` is **baseline-only**; its fitted profile is projected to
+periodic Fourier geometry for a clean circular seam. Polynomial degree needs
+more distinct midpoints than the requested degree; Fourier baseline requires
+at least four and caps terms to available evidence. `--smoothness` controls
+only baseline's cyclic signed-waveform median, using the legacy perceptual
+scaling. New methods use millisecond windows and `roundness`, not this median.
 
----
+The `[preprocess]` table controls relative trim threshold, padding and peak
+normalization. A bare recording without leading/trailing room cannot retain
+the same padding as a recording with surrounding silence; small border
+differences can remain. `[features]` controls RMS window/hop milliseconds,
+compression, weights and band edges. RMS uses rectangular zero-padded
+windows; bands use Hann-windowed FFT power, normalized by total band power.
+Edges must cover the WAV Nyquist frequency; frequencies above Nyquist simply
+have no power. Positive/negative band weights encode an explicit artistic
+choice, not a learned identity model. Pitch reference/octave scale are global,
+not normalized per word. Zero secondary weight produces energy-only geometry
+(pitch still must be valid if its algorithm is selected). See the TOML for
+all values. Style overrides include `--max-width`, `--height`, `--color`,
+`--stroke-width`, `--circle`; preprocessing and feature weights use TOML.
 
-### 3. Merge and Scale SVGs
+## Compare and compose multiple words
 
-You can merge and scale SVGs from a directory into a single SVG and PNG:
+Use an explicit **new** output directory. With real recordings and no ground
+truth, explicitly select the first three methods:
 
 ```bash
-python merge.py <directory> [--width WIDTH] [--height HEIGHT] [--output OUTPUT_SVG] [--png OUTPUT_PNG]
+python3 compare.py samples/HelloWorld.wav samples/Kuba.wav \
+  --algorithms baseline energy energy-timbre --output-dir artwork/comparison \
+  --color black --height 1024
 ```
 
-#### Example
+Output includes:
+
+- `comparison.svg`: labeled side-by-side **algorithm panels**, each containing
+  the actual overlapped multiword composition.
+- `METHOD/overlay.svg`: standalone tattoo composition, every word co-centered
+  on the **same nominal diameter**, without per-word bounding-box fitting,
+  translation, scaling or duration-dependent size.
+- `METHOD/words/`: collision-safe numbered individual SVGs, including repeated
+  file stems/paths; `METHOD/diagnostics/`: isolated diagnostic SVGs.
+
+All words use identical preprocessing settings and styling. Overlay overlap
+is intentional. Word labels are in SVG group titles; algorithm labels are in
+the preview. Default comparison includes all four methods and therefore
+requires **one valid `--pitch` JSON per WAV**, in the same order. Missing or
+invalid inputs are checked/rendered before any comparison files are written;
+pitch is never silently replaced by energy.
 
 ```bash
-python merge.py output_names --width 2048 --height 2048 --output merged.svg --png merged.png
+python3 generate_fixtures.py /tmp/ripple-known-controls
+python3 compare.py /tmp/ripple-known-controls/constant.wav \
+  /tmp/ripple-known-controls/changing.wav /tmp/ripple-known-controls/interrupted.wav \
+  --pitch /tmp/ripple-known-controls/constant.pitch.json \
+  /tmp/ripple-known-controls/changing.pitch.json /tmp/ripple-known-controls/interrupted.pitch.json \
+  --output-dir artwork/four-methods --color black
 ```
 
----
+The deterministic generator creates controlled oscillator WAVs and records
+their actual generating frequencies, including explicitly unvoiced silence.
+It refuses to overwrite an existing directory. These are **synthetic controls**,
+not speech examples or pitch estimates.
 
-## Output
+`bash names.sh NEW_OUTPUT_DIR [OPTIONS]` compares/overlaps the four example names
+using the first three methods; it no longer overwrites `output_names/`.
 
-- **SVG**: The main output is an SVG file visualizing the waveform or its circular mapping.
-- **PNG**: When merging, a PNG is also produced if `cairosvg` is installed.
-- **tmp.svg**: A temporary SVG with the linear waveform is always written for reference.
+## Merge existing SVGs
 
----
+```bash
+python3 merge.py artwork/comparison/energy/words \
+  --width 1024 --height 1024 --output artwork/merged.svg --no-png
+# With working CairoSVG + native Cairo:
+python3 merge.py artwork/comparison/energy/words \
+  --width 1024 --height 1024 --output artwork/merged.svg --png artwork/merged.png
+```
 
-## Tips & Notes
+This overlays all `.svg` **path geometry** in a directory (not a collage).
+`--output` is required: there is no implicit destination that could overwrite
+the committed examples. Keep output outside the input directory and merge `words/`, not diagnostics or
+the labeled preview. Geometry scales from each source canvas origin, not its
+individual bounding box; `--thickness` sets the merged stroke. Nonsquare merge
+dimensions intentionally make an ellipse. For a common circle, use square
+dimensions and identically configured inputs. General transformed SVG groups
+are not supported by this legacy path-only merger.
 
-- The tool works best with 16-bit PCM WAV files.
-- For stereo files, channels are automatically combined to mono.
-- Colors can be any valid SVG color (e.g., `red`, `#ff0000`, `rgb(0,255,0)`).
-- Batch processing is parallelized for speed.
+## Validation and human evaluation
 
----
+```bash
+python3 -m py_compile main.py ripple.py utils.py merge.py config.py audio.py pitch.py features.py geometry.py compare.py generate_fixtures.py
+python3 -m unittest discover -s tests -v
+```
+
+Standard-library unittest uses small deterministic 16-bit fixtures, explicit
+SVG/curve assertions and isolated temporary directories. CI runs Python 3.11
+and 3.13. Native PNG availability/failure is checked explicitly; a missing PNG
+is not reported as a successful render. Tests do not regenerate committed
+examples. See [comparison and evaluation](docs/evaluation.md) for a blinded
+human protocol. Synthetic invariances cannot establish real-world uniqueness,
+speaker identity or beauty.
 
 ## License
 
-This project is licensed under the MIT License, a permissive open-source license. You are free to use, modify, and distribute the code, even for commercial purposes, as long as you include the original copyright notice. See [LICENSE](LICENSE) for details.
+[MIT](LICENSE).

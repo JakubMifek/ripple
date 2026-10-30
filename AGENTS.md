@@ -1,126 +1,103 @@
 # Agent instructions
 
-## Project and code map
+## Project map
 
-Ripple converts WAV audio into circular SVG artwork and a linear diagnostic SVG.
-It is a collection of Python scripts, not an installed package or a web service.
+Ripple is a Python 3.11+ script collection, not an installed package or service.
+It makes artistic circular keepsakes from 16-bit PCM WAV recordings, not
+guaranteed unique biometric signatures or physically tattoo-ready designs.
 
-- `main.py`: argparse CLI, WAV opening, and output writing.
-- `ripple.py`: sample extraction, smoothing control, extrema and midpoint
-  extraction, curve fitting dispatch, and circular geometry. `ripple()` returns
-  `(processing_svg, circular_svg)` as strings.
-- `utils.py`: channel averaging, cyclic median smoothing, polynomial and Fourier
-  fitting, and SVG serialization.
-- `merge.py`: a separate CLI that scales and overlays SVG paths onto one canvas;
-  optionally renders a PNG with CairoSVG. It does not arrange a collage/grid.
-- `names.sh`: runs four sample conversions concurrently, waits, then merges
-  `output_names/`.
-- `samples/`: committed WAV inputs. `output/`, `output_names/`,
-  `output_samples/`, and root `tmp.svg` contain committed generated examples.
+- `ripple.toml`, `config.py`: version-1 defaults, strict TOML overrides,
+  validation and shared CLI options. Defaults -> explicit config -> CLI.
+- `audio.py`: floating channel averaging, DC removal, conservative relative
+  silence trimming, gain normalization; retains original sample offsets.
+- `ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
+  smoothing/extrema/recursive midpoints, diagnostic SVG. `ripple()` returns
+  `(diagnostic_svg, circular_svg)` strings.
+- `features.py`: millisecond RMS, relative spectral bands, supplied pitch.
+- `pitch.py`: versioned, WAV-hash-bound known-ground-truth JSON; complete
+  original-frame coverage. **No pitch estimation, including external or
+  manually corrected speech estimates.** Read `docs/pitch-input.md`.
+- `geometry.py`: bounded periodic Fourier profile, float radial geometry,
+  analytic matching cubic tangents including the closed seam.
+- `utils.py`: cyclic float median, baseline fits, XML SVG serialization.
+- `main.py`: single-conversion CLI; output-specific diagnostics.
+- `compare.py`: individual words, diagnostics, co-centered multiword overlays
+  for each algorithm, labeled side-by-side algorithm preview.
+- `generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
+- `merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
+- `names.sh`: first-three-method comparison of four example names into a new
+  explicit output directory; no parallel/shared-diagnostic race.
+- `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
 
-## Environment
+## Environment and validation
 
-Run commands from the repository root unless deliberately isolating output.
-Use a virtual environment rather than installing into the system Python:
+Use a virtual environment from the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
-```
-
-Dependencies are NumPy, svgpathtools, and CairoSVG. CairoSVG is listed in
-`requirements.txt`, but `merge.py` tolerates its absence and skips PNG export.
-If PNG rendering fails, investigate the CairoSVG/native Cairo environment; do
-not silently treat a missing PNG as a successful PNG check.
-
-There is no configured test runner, formatter, linter, packaging metadata, or CI.
-Do not invent existing commands such as `pytest` or introduce tooling unrelated
-to the requested change.
-
-## Behavior to preserve
-
-- Audio processing supports 16-bit PCM only. Multichannel audio is averaged
-  into mono before sample extraction; preserve the frame count and sample rate.
-- Smoothing is cyclic, wrapping at the ends. `ripple.py` scales the user-facing
-  smoothness before calling the shared smoother.
-- Both fitting methods, `fourier` and `poly`, are supported. `--poly-degree`
-  controls the polynomial degree or the Fourier term count, respectively.
-- Circular output is always produced. `--circle` adds a gray reference circle;
-  it does not replace the waveform or select linear output.
-- The circular SVG is square, with side `min(svg_width, svg_height)`.
-  The processing SVG includes the waveform, envelopes, and fitted curve.
-- `main.py` writes the requested circular SVG and always overwrites `tmp.svg`
-  in the current working directory. It does not create parent directories.
-- `merge.py` reads every `.svg` in its input directory and scales path geometry
-  to the requested dimensions, setting stroke width from `--thickness`.
-  Keep merged output outside the input directory to avoid re-merging it.
-
-Read implementation and CLI help before changing behavior. Some README defaults
-are stale: `main.py` currently defaults to `--max-width 16384 --height 2048`;
-the `ripple()` API has separate defaults. Update directly affected documentation
-when changing arguments, defaults, or output contracts.
-
-## Making changes
-
-Keep changes focused and follow the existing function-based structure. Reuse
-helpers in `utils.py` instead of duplicating smoothing, fitting, or SVG logic.
-Preserve CLI names and return shapes unless the task explicitly changes them.
-Report unsupported inputs and processing failures explicitly.
-
-Do not modify sample WAVs or regenerate committed SVG/PNG examples unless the
-task requires it. Do not run `names.sh` as a routine check: it overwrites tracked
-examples and its parallel conversions race over the same root `tmp.svg`.
-
-The current smoothing and coordinate-generation loops can be expensive on long
-recordings. Prefer short inputs for checks; reducing `--max-width` alone does
-not reduce the number of audio samples processed.
-
-## Validation
-
-For Python changes, start with syntax and CLI checks:
-
-```bash
-python3 -m py_compile main.py ripple.py utils.py merge.py
+python3 -m py_compile main.py ripple.py utils.py merge.py config.py audio.py pitch.py features.py geometry.py compare.py generate_fixtures.py
 python3 main.py --help
+python3 compare.py --help
 python3 merge.py --help
+python3 -m unittest discover -s tests -v
 ```
 
-For conversion or geometry changes, run a smoke check in an isolated temporary
-working directory so the mandatory `tmp.svg` cannot overwrite the tracked one.
-After activating the environment above, this example uses absolute script and
-input paths while keeping all generated files outside the repository:
+No formatter/linter/packaging is configured. Do not invent existing tools.
+Dependencies are NumPy, svgpathtools, CairoSVG. Missing CairoSVG **or native
+Cairo** warns for implicit PNG export but fails for explicit `--png`.
+`--no-png` is SVG-only. Never count absent PNG as a successful rendering check.
+Tests exercise the host's available/unavailable branch and mock missing and
+failed renderers; native PNG dimensions are checked when available.
 
-```bash
-repo="$PWD"
-python="$(command -v python3)"
-work="$(mktemp -d)"
-(
-  cd "$work" || exit 1
-  mkdir inputs
-  "$python" "$repo/main.py" "$repo/samples/HelloWorld.wav" inputs/fourier.svg \
-    --smoothness 0 --poly-degree 4 --max-width 512 --height 256 --circle &&
-  "$python" "$repo/main.py" "$repo/samples/HelloWorld.wav" inputs/poly.svg \
-    --smoothness 0 --poly-degree 4 --max-width 512 --height 256 --fitting poly &&
-  "$python" "$repo/merge.py" inputs --width 256 --height 256 \
-    --output merged.svg --png merged.png
-)
-```
+## Contracts to preserve
 
-Inspect the generated SVGs with `xml.etree.ElementTree`: require the SVG
-namespace, expected dimensions, nonempty path data, and finite coordinates.
-For this example, both circular SVGs and the merged SVG should be 256 by 256;
-the reference-circle conversion should have two paths and the other one one.
-When CairoSVG is available, also confirm the PNG exists and has the requested
-dimensions. Remove only the temporary files/directory you created after checking.
+- Shared preprocessing applies to **all four methods**, including baseline.
+  Preserve internal pauses and sample-rate/original-frame alignment.
+- Default algorithm is baseline. `--smoothness` is baseline-only; `--poly-degree`
+  (alias `--detail`) controls fit detail. Polynomial fit is baseline-only and
+  is projected to periodic geometry. New methods use Fourier profiles.
+- Extraction is independent of export dimensions. Detail, deformation and
+  roundness are separate. Do not stretch tiny residuals to full radial range.
+- Every word is a **closed, connected smooth loop on the SAME nominal
+  diameter and center**, independent of duration/sample count/method. Never
+  auto-fit individual bounding boxes. Overlay overlap is intentional.
+- Artwork side is `min(max_width, height)`; `--circle` adds a gray reference,
+  never substitutes it. Use floating geometry and matching seam tangents.
+- `energy-pitch` always requires validated known-source input, even at zero
+  pitch weight. No invented Hz, no silent energy fallback, no speech estimates.
+  Absolute pitch must survive centering as a broad shape component; mean
+  subtraction must not erase it. Unvoiced source modulation is zero.
+- `main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
+  writes shared root `tmp.svg`. Parent directories must exist.
+- Comparisons require a new explicit output directory and render/validate all
+  inputs before writing any files. Four-method comparison needs a valid
+  sidecar per word; real speech explicitly selects the first three.
+- `merge.py` reads all `.svg` in its input directory and scales from the
+  canvas origin, not per-path bounds. Merge `METHOD/words/`, not diagnostics
+  or labeled previews. `--output` is required; keep output outside input. General group transforms
+  are not supported by its legacy path-only parser.
 
-Add focused regression tests for changed logic when appropriate, using small
-synthetic 16-bit WAVs (including mono/stereo where relevant) and explicit SVG
-assertions rather than only checking file existence. Exercise both fitting
-methods for shared pipeline changes. Check relevant failure cases such as
-unsupported sample widths and insufficient extrema for fitting; do not silently
-change their behavior as part of an unrelated task.
+## Changes and checks
 
-Before committing, inspect `git diff` and `git status --short` for accidental
-changes to generated examples. Documentation-only changes do not require audio
-conversion or dependency installation.
+Read implementation and CLI help before changing behavior. Keep the
+function-based structure and reuse shared helpers. Update related docs and
+configuration for argument/default/output changes. Report processing errors
+explicitly. Do not silently skip failed inputs or render success-shaped
+partial pitch comparisons.
+
+Do not modify committed WAVs or regenerate `output/`, `output_names/`,
+`output_samples/`, root `tmp.svg` unless specifically required. Run new audio
+checks in an isolated temporary directory, using absolute input/script paths.
+Do not run `names.sh` as a routine check. Tests use temporary directories and
+small analytic 16-bit mono/stereo fixtures; maintain exact feature assertions,
+explicit numerical tolerances, finite/positive/closed/bounded geometry and
+join/seam tangent checks. Exercise both baseline fits and all four methods.
+Test size invariance, zero-feature ablations, pitch errors and trim alignment,
+collision-safe names, shared-diameter overlays and PNG failure behavior.
+
+Synthetic checks cannot establish beauty or real-world uniqueness. See
+`docs/evaluation.md` for the human comparison protocol. Never invent true
+pitch for natural samples. Check `git diff` and `git status --short` before
+committing for accidental generated files.

@@ -1,144 +1,124 @@
-"""
-utils.py - Utility functions for audio processing.
-"""
+"""Shared smoothing, fitting and SVG serialization."""
 
-import wave
+import heapq
 import io
-import struct
+import wave
+import xml.etree.ElementTree as ET
 import numpy as np
-import statistics
 
-# --- Smoothing ---
-def smooth_waveform(samples: list, smoothness: float) -> list:
-    """
-    Smooth the waveform samples based on the specified smoothness.
-    Args:
-        samples: List of audio samples
-        smoothness: Float between 0 and 1 indicating smoothness level
-    Returns:
-        List of smoothed samples
-    """
+SVG_NS = "http://www.w3.org/2000/svg"
+ET.register_namespace("", SVG_NS)
+
+
+def smooth_waveform(samples, smoothness):
+    """Exact cyclic median, with float precision and O(n log n) heap operations."""
     n = len(samples)
-    if smoothness <= 0:
-        return samples
-    elif smoothness >= 1:
-        avg = int(sum(samples) / n)
-        return [avg] * n
-    else:
-        smoothed = []
-        window = int(1 + smoothness * (n - 1))
-        if window % 2 == 0:
-            window += 1  # median filter window should be odd
+    if not n or smoothness <= 0:
+        return list(samples)
+    if smoothness >= 1:
+        return [float(np.mean(samples))] * n
+    window = int(1 + smoothness * (n - 1)) | 1
+    half = window // 2
+    values = [float(samples[i % n]) for i in range(-half, n + half)]
+    lower, upper, side, expired = [], [], {}, set()
+    counts = [0, 0]
 
-        print(f"Window size for smoothing: {window}")
-        half = window // 2
+    def prune(heap):
+        while heap and heap[0][1] in expired:
+            _, idx = heapq.heappop(heap)
+            expired.remove(idx)
+            del side[idx]
 
-        for i in range(n):
-            # Cyclic window: wrap indices around the array
-            indices = [(i + j) % n for j in range(-half, half + 1)]
-            window_samples = [samples[idx] for idx in indices]
-            if len(window_samples) < 3:
-                smoothed.append(int(sum(window_samples) / len(window_samples)))
-            else:
-                smoothed.append(int(statistics.median(window_samples)))
-        return smoothed
-    
-# --- SVG Generation ---
-def create_waveform_svg(svg_width, svg_height, svg_paths):
-    """
-    Create an SVG string from a list of path dictionaries.
-    """
-    svg_content = f'<svg width="{svg_width}" height="{svg_height}" xmlns="http://www.w3.org/2000/svg">'
+    def balance():
+        prune(lower)
+        prune(upper)
+        while counts[0] > counts[1] + 1:
+            value, idx = heapq.heappop(lower)
+            heapq.heappush(upper, (-value, idx))
+            side[idx] = 1
+            counts[0] -= 1
+            counts[1] += 1
+            prune(lower)
+        while counts[0] < counts[1]:
+            value, idx = heapq.heappop(upper)
+            heapq.heappush(lower, (-value, idx))
+            side[idx] = 0
+            counts[1] -= 1
+            counts[0] += 1
+            prune(upper)
+
+    result = []
+    for idx, value in enumerate(values):
+        prune(lower)
+        which = 0 if not lower or value <= -lower[0][0] else 1
+        heapq.heappush(lower if which == 0 else upper, (-value if which == 0 else value, idx))
+        side[idx] = which
+        counts[which] += 1
+        if idx >= window:
+            old = idx - window
+            counts[side[old]] -= 1
+            expired.add(old)
+        balance()
+        if idx >= window - 1:
+            result.append(-lower[0][0])
+    return result
+
+
+def create_waveform_svg(svg_width, svg_height, svg_paths, metadata=None):
+    root = ET.Element(f"{{{SVG_NS}}}svg", width=str(svg_width), height=str(svg_height),
+                      viewBox=f"0 0 {svg_width} {svg_height}")
+    if metadata:
+        for key, value in metadata.items():
+            root.set(f"data-{key}", str(value))
     for path in svg_paths:
-        # If 'fill' is present, use it, otherwise fill="none"
-        fill = path.get('fill', 'none')
-        svg_content += f'<path d="{path["d"]}" fill="{fill}" stroke="{path["stroke"]}" stroke-width="{path["stroke_width"]}"/>'
-    svg_content += '</svg>'
-    return svg_content
+        ET.SubElement(root, f"{{{SVG_NS}}}path", {
+            "d": path["d"], "fill": path.get("fill", "none"),
+            "stroke": path["stroke"], "stroke-width": str(path["stroke_width"]),
+            "stroke-linejoin": "round", "stroke-linecap": "round"})
+    return ET.tostring(root, encoding="unicode")
 
-# --- Curve Fitting ---
+
 def fit_polynomial_curve(mid_points, poly_degree):
-    """
-    Fit a polynomial curve through the mid_points and return the fitted points.
-    """
-    margin = min(len(mid_points), 128)
-    x_vals = np.array(list(reversed([-x-mid_points[1][0] for x, y in mid_points[:margin]])) + [x for x, y in mid_points] + [mid_points[-1][0] + x for x, y in mid_points[:margin]])
-    y_vals = np.array([y for x, y in mid_points[len(mid_points) - margin:]] + [y for x, y in mid_points] + [y for x, y in mid_points[:margin]])
-    degree = min(poly_degree, len(mid_points) - 1)
-    coeffs = np.polyfit(x_vals, y_vals, degree)
-    poly = np.poly1d(coeffs)
-    poly_points = [(x, int(poly(x))) for x in x_vals[margin:-margin]]
-    return poly_points
+    xs, ys = np.asarray(mid_points, dtype=float).T
+    if len(xs) <= poly_degree:
+        raise ValueError("Not enough midpoints for the requested polynomial degree.")
+    # Polynomial.fit scales the time domain before solving, avoiding pixel-scale conditioning.
+    polynomial = np.polynomial.Polynomial.fit(xs, ys, poly_degree)
+    dense = np.linspace(xs[0], xs[-1], 512, endpoint=False)
+    return list(zip(dense, polynomial(dense)))
+
 
 def fit_fourier_curve(mid_points, n_terms=10):
-    """
-    Fit a truncated Fourier series (sum of sines and cosines) to the mid_points.
-    Returns a list of (x, y) points for the fitted curve.
-    """
-    # Sort by x to ensure correct order
-    mid_points = sorted(mid_points, key=lambda p: p[0])
-    x_vals = np.array([x for x, y in mid_points])
-    y_vals = np.array([y for x, y in mid_points])
-    N = len(x_vals)
-    # Normalize x to [0, 2pi] for periodicity
-    x_norm = 2 * np.pi * (x_vals - x_vals[0]) / (x_vals[-1] - x_vals[0] if x_vals[-1] != x_vals[0] else 1)
-    # Build design matrix for least squares fit
-    A = [np.ones(N)]
-    for n in range(1, n_terms + 1):
-        A.append(np.sin(n * x_norm))
-        A.append(np.cos(n * x_norm))
-    A = np.vstack(A).T
-    coeffs, _, _, _ = np.linalg.lstsq(A, y_vals, rcond=None)
-    # Generate fitted curve (dense sampling for smoothness)
-    x_dense = np.linspace(x_vals[0], x_vals[-1], 4 * N)
-    x_dense_norm = 2 * np.pi * (x_dense - x_vals[0]) / (x_vals[-1] - x_vals[0] if x_vals[-1] != x_vals[0] else 1)
-    y_dense = coeffs[0] * np.ones_like(x_dense)
-    for n in range(1, n_terms + 1):
-        y_dense += coeffs[2 * n - 1] * np.sin(n * x_dense_norm)
-        y_dense += coeffs[2 * n] * np.cos(n * x_dense_norm)
-    fourier_points = [(int(x), int(y)) for x, y in zip(x_dense, y_dense)]
-    return fourier_points
+    points = np.asarray(sorted(mid_points), dtype=float)
+    xs, ys = points.T
+    if len(xs) < 4 or xs[-1] <= xs[0]:
+        raise ValueError("Not enough distinct midpoints for Fourier fitting (need at least 4).")
+    terms = min(n_terms, (len(xs) - 1) // 2)
+    angles = 2 * np.pi * (xs - xs[0]) / (xs[-1] - xs[0])
+    matrix = [np.ones(len(xs))]
+    for k in range(1, terms + 1):
+        matrix.extend((np.cos(k * angles), np.sin(k * angles)))
+    coefficients = np.linalg.lstsq(np.array(matrix).T, ys, rcond=None)[0]
+    time = np.linspace(xs[0], xs[-1], 512, endpoint=False)
+    theta = 2 * np.pi * (time - xs[0]) / (xs[-1] - xs[0])
+    profile = np.full(len(time), coefficients[0])
+    for k in range(1, terms + 1):
+        profile += coefficients[2*k-1] * np.cos(k*theta) + coefficients[2*k] * np.sin(k*theta)
+    return list(zip(time, profile))
 
-def combine_channels(wf: wave.Wave_read) -> wave.Wave_read:
-    """
-    Combine all channels of a wave file into a single mono channel.
-    Args:
-        wf: wave.Wave_read object
-    Returns:
-        wave.Wave_read: New mono wave.Wave_read object (in-memory)
-    """
-    nchannels = wf.getnchannels()
-    if nchannels == 1:
+
+def combine_channels(wf):
+    """Legacy helper; the main pipeline averages floating samples without requantization."""
+    if wf.getsampwidth() != 2:
+        raise ValueError("Only 16-bit PCM supported.")
+    if wf.getnchannels() == 1:
         return wf
-
-    sampwidth = wf.getsampwidth()
-    framerate = wf.getframerate()
-    nframes = wf.getnframes()
     wf.rewind()
-    frames = wf.readframes(nframes)
-
-    # Unpack all samples
-    fmt = '<' + 'h' * nchannels * nframes if sampwidth == 2 else None
-    if fmt is None:
-        raise NotImplementedError("Only 16-bit PCM supported.")
-    samples = struct.unpack(fmt, frames)
-
-    # Combine channels: average samples for each frame
-    mono_samples = []
-    for i in range(nframes):
-        frame = samples[i * nchannels:(i + 1) * nchannels]
-        avg = int(sum(frame) / nchannels)
-        mono_samples.append(avg)
-
-    # Pack mono samples
-    mono_frames = struct.pack('<' + 'h' * nframes, *mono_samples)
-
-    # Write to in-memory buffer
+    samples = np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2")
+    mono = np.rint(samples.reshape(-1, wf.getnchannels()).mean(axis=1)).astype("<i2")
     buffer = io.BytesIO()
-    with wave.open(buffer, 'wb') as mono_wf:
-        mono_wf.setnchannels(1)
-        mono_wf.setsampwidth(sampwidth)
-        mono_wf.setframerate(framerate)
-        mono_wf.writeframes(mono_frames)
+    with wave.open(buffer, "wb") as target:
+        target.setparams((1, 2, wf.getframerate(), 0, "NONE", "not compressed"))
+        target.writeframes(mono.tobytes())
     buffer.seek(0)
-    return wave.open(buffer, 'rb')
+    return wave.open(buffer, "rb")
