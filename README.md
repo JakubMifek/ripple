@@ -120,6 +120,31 @@ all values. Style overrides include `--max-width`, `--height`, `--color`,
 
 ## Compare and compose multiple words
 
+### Hello World example
+
+The [Hello World comparison](output_samples/hello-world-comparison/comparison.svg)
+shows the same recording with baseline, energy, and energy-timbre, left to right.
+All three use the same nominal diameter and center within their panels.
+Energy-pitch is omitted because this natural-speech sample has no ground-truth
+pitch sidecar.
+
+![Hello World: baseline, energy, and energy-timbre](output_samples/hello-world-comparison/comparison.svg)
+
+Generated with the project defaults and these styling overrides (use a new
+output directory when reproducing):
+
+```bash
+python3 compare.py samples/HelloWorld.wav \
+  --algorithms baseline energy energy-timbre \
+  --output-dir artwork/hello-world-comparison \
+  --color black --height 1024 --stroke-width 3
+```
+
+Individual curves, overlays, and diagnostics are in
+[`output_samples/hello-world-comparison/`](output_samples/hello-world-comparison/).
+
+### Your recordings
+
 Use an explicit **new** output directory. With real recordings and no ground
 truth, explicitly select the first three methods:
 
