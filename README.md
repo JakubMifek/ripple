@@ -51,8 +51,10 @@ and editable scene export.
 ![Rendered four-name gold pendant](output_samples/names-pendant/pendant.png)
 
 Final recordings of **Denisa, Eliska, Jiri and Jitka**:
-[composed SVG](output_samples/final-names-composition/energy-timbre-pitch/overlay.svg)
+[color-coded SVG with name legend](output_samples/final-names-composition/energy-timbre-pitch/overlay-labeled.svg),
+[plain composed SVG](output_samples/final-names-composition/energy-timbre-pitch/overlay.svg)
 and [gold pendant render](output_samples/final-names-pendant/pendant.png).
+Use the plain SVG as the pendant renderer's input.
 
 ## One recording
 
