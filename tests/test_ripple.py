@@ -418,6 +418,24 @@ class GeometryTests(FixtureCase):
         rounded = periodic_coefficients(np.cos(theta)+np.cos(8*theta), 8, 1)
         self.assertLess(abs(rounded[8]/rounded[1]), abs(raw[8]/raw[1]))
 
+    def test_light_gray_reference_preserves_curve_and_nominal_radius(self):
+        render = self.settings["render"]
+        theta = np.arange(2048) * 2 * np.pi / 2048
+        coefficients = periodic_coefficients(np.sin(theta), render["detail"], render["roundness"])
+        original = ET.fromstring(circular_svg(coefficients, render)).find("s:path", NS)
+        render["circle"] = True
+        root = ET.fromstring(circular_svg(coefficients, render))
+        reference, artwork = root.findall("s:path", NS)
+        self.assertEqual(reference.get("stroke"), "#ccc")
+        self.assertEqual(artwork.attrib, original.attrib)
+        path = parse_path(reference.get("d"))
+        self.assertTrue(path.isclosed())
+        self.assertTrue(path.iscontinuous())
+        center = complex(*map(float, root.get("data-center").split(",")))
+        radius = float(root.get("data-nominal-diameter")) / 2
+        samples = [segment.point(t) for segment in path for t in (0, 0.25, 0.5, 0.75, 1)]
+        np.testing.assert_allclose(np.abs(np.array(samples) - center), radius, atol=1e-7, rtol=0)
+
     def test_legacy_poly_and_insufficient_extrema(self):
         self.settings["render"].update(fitting="poly", detail=4)
         circular = render_file(self.wav, self.settings)[1]

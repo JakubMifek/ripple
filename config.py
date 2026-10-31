@@ -128,7 +128,7 @@ def add_render_arguments(parser):
     parser.add_argument("--stroke-width", type=float)
     parser.add_argument("--deformation", type=float, help="Fractional radial deformation, 0 to 0.35")
     parser.add_argument("--roundness", type=float, help="High-harmonic attenuation, 0 to 1")
-    parser.add_argument("--circle", action=argparse.BooleanOptionalAction, default=None, help="Add a gray nominal reference circle")
+    parser.add_argument("--circle", action=argparse.BooleanOptionalAction, default=None, help="Add a light-gray nominal reference circle")
 
 
 def config_from_args(args):

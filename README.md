@@ -50,7 +50,7 @@ cannot supply exact ground truth; the existing speech samples demonstrate only
 the first three methods. Read the [pitch input guide](docs/pitch-input.md)
 before using `--algorithm energy-pitch --pitch FILE.pitch.json`.
 
-The artwork is always circular. `--circle` **adds** a gray nominal reference
+The artwork is always circular. `--circle` **adds** a light-gray nominal reference
 circle; it does not replace the word. `--no-circle` overrides configuration.
 The output is square with side `min(max_width, height)`, independent of audio
 duration. Default width/height are **16384 / 2048**; default nominal diameter is
@@ -125,6 +125,8 @@ all values. Style overrides include `--max-width`, `--height`, `--color`,
 The [Hello World comparison](output_samples/hello-world-comparison/comparison.svg)
 shows the same recording with baseline, energy, and energy-timbre, left to right.
 All three use the same nominal diameter and center within their panels.
+The light-gray reference circle shows that nominal radius; the black curve
+shows the recording's inward and outward deviations.
 Energy-pitch is omitted because this natural-speech sample has no ground-truth
 pitch sidecar.
 
@@ -143,7 +145,7 @@ To reproduce it, use a new output directory:
 python3 compare.py samples/HelloWorld.wav \
   --algorithms baseline energy energy-timbre \
   --output-dir artwork/hello-world-comparison \
-  --config presets/expressive.toml
+  --config presets/expressive.toml --circle
 ```
 
 Individual curves, overlays, and diagnostics are in

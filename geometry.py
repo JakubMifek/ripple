@@ -57,7 +57,7 @@ def circular_svg(coefficients, render):
     paths = []
     if render["circle"]:
         paths.append({"d": radial_path(np.zeros(1, dtype=complex), render),
-                      "stroke": "#888", "stroke_width": render["stroke_width"]})
+                      "stroke": "#ccc", "stroke_width": render["stroke_width"]})
     paths.append({"d": radial_path(coefficients, render), "stroke": render["color"],
                   "stroke_width": render["stroke_width"]})
     return create_waveform_svg(side, side, paths, {
