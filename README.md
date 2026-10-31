@@ -50,12 +50,15 @@ cannot supply exact ground truth; the existing speech samples demonstrate only
 the first three methods. Read the [pitch input guide](docs/pitch-input.md)
 before using `--algorithm energy-pitch --pitch FILE.pitch.json`.
 
-The artwork is always circular. `--circle` **adds** a light-gray nominal reference
-circle; it does not replace the word. `--no-circle` overrides configuration.
+The artwork is always circular. A light-gray nominal reference circle is
+enabled by default; it does not replace the word. `--no-circle` hides it,
+and `--circle` restores it when overriding configuration.
 The output is square with side `min(max_width, height)`, independent of audio
-duration. Default width/height are **16384 / 2048**; default nominal diameter is
-80% of that square's side, with up to 18% radial deformation about the nominal
-radius. Stroke width is in SVG user units. These are scalable exports, not
+duration. Default width/height are **16384 / 1024**; default nominal diameter is
+80% of that square's side, with up to 24% radial deformation about the nominal
+radius. Curves default to black with a stroke width of 3 SVG user units.
+Very small canvases need a thinner stroke to retain the full deformation
+margin, for example `--height 256 --stroke-width 1`. These are scalable exports, not
 fixed physical tattoo dimensions or a claim of tattoo readiness.
 
 Each conversion writes `OUTPUT_STEM.diagnostic.svg` beside the artwork,
@@ -107,7 +110,7 @@ at least four and caps terms to available evidence. `--smoothness` controls
 only baseline's cyclic signed-waveform median, using the legacy perceptual
 scaling. New methods use millisecond windows and `roundness`, not this median.
 
-`--baseline-gain` (`render.baseline_gain`, default **16**, range 0 to 64) gives
+`--baseline-gain` (`render.baseline_gain`, default **19.2**, range 0 to 64) gives
 the much smaller signed-midpoint profile a fixed display gain before the common
 geometry limiter. Both baseline fits use it. It does not change extraction,
 normalize each recording to full contrast, or affect the energy methods.
@@ -143,11 +146,12 @@ pitch sidecar.
 
 ![Hello World: baseline, energy, and energy-timbre](output_samples/hello-world-comparison/comparison.svg)
 
-This uses the explicit [expressive preset](presets/expressive.toml), not the
-subtle project defaults. It reduces high-harmonic smoothing and increases
-deformation and feature weights, without normalizing each curve to fill its
-radial range. The same preset can be used for other recordings; it does not
-guarantee visible differences for every input. Baseline uses this preset's fixed
+This uses the **project defaults**, including the stronger contour settings and
+gray reference circles. The optional [expressive preset](presets/expressive.toml)
+retains the same style overrides for existing commands. These settings reduce
+high-harmonic smoothing and increase deformation and feature weights, without
+normalizing each curve to fill its radial range. They do not guarantee visible
+differences for every input. Baseline uses a fixed
 19.2x display gain so its signed-midpoint variation is visible without per-word
 min-max normalization.
 
@@ -156,8 +160,7 @@ To reproduce it, use a new output directory:
 ```bash
 python3 compare.py samples/HelloWorld.wav \
   --algorithms baseline energy energy-timbre \
-  --output-dir artwork/hello-world-comparison \
-  --config presets/expressive.toml --circle
+  --output-dir artwork/hello-world-comparison
 ```
 
 Individual curves, overlays, and diagnostics are in

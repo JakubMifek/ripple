@@ -67,7 +67,8 @@ class FixtureCase(unittest.TestCase):
         self.work = Path(self.temporary.name)
         self.wav = self.work / "word.wav"
         write_wav(self.wav, signal())
-        self.settings = load_config(overrides={"smoothness": 0, "detail": 8, "max_width": 512, "height": 256})
+        self.settings = load_config(overrides={"smoothness": 0, "detail": 8, "max_width": 512, "height": 256,
+                                              "stroke_width": 1, "deformation": 0.18, "circle": False})
 
     def audio(self, path=None):
         with wave.open(str(path or self.wav), "rb") as wf:
@@ -88,8 +89,16 @@ class ConfigurationTests(FixtureCase):
         defaults = load_config()
         self.assertEqual(defaults["render"]["algorithm"], "baseline")
         self.assertEqual(defaults["render"]["max_width"], 16384)
-        self.assertEqual(defaults["render"]["height"], 2048)
-        self.assertEqual(defaults["render"]["baseline_gain"], 16)
+        self.assertEqual(defaults["render"]["height"], 1024)
+        self.assertEqual(defaults["render"]["color"], "black")
+        self.assertEqual(defaults["render"]["stroke_width"], 3)
+        self.assertTrue(defaults["render"]["circle"])
+        self.assertEqual(defaults["render"]["deformation"], 0.24)
+        self.assertEqual(defaults["render"]["roundness"], 0.15)
+        self.assertEqual(defaults["render"]["baseline_gain"], 19.2)
+        self.assertEqual(defaults["features"]["energy_weight"], 3.96)
+        self.assertEqual(defaults["features"]["timbre_weight"], 2.64)
+        self.assertEqual(defaults, load_config(REPO / "presets/expressive.toml"))
         config = self.work / "custom.toml"
         config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\nbaseline_gain = 4\n')
         _, args = parse_args([str(self.wav), "x.svg", "--config", str(config), "--poly-degree", "7",
@@ -221,18 +230,18 @@ class FeatureTests(FixtureCase):
         self.assertLess(rms[0], expected)
 
     def test_energy_polarity_gain_and_padding_resistance(self):
+        # Each recording has enough surrounding silence to retain the configured trim padding.
+        write_wav(self.wav, np.pad(signal(), (400, 400)))
         for method in ALGORITHMS[1:3]:
             self.settings["render"]["algorithm"] = method
             reference = sample_path(render_file(self.wav, self.settings)[1])
-            variants = [-signal(), signal(gain=0.25),
+            variants = [np.pad(-signal(), (400, 400)), np.pad(signal(gain=0.25), (400, 400)),
                         np.pad(signal(), (800, 800))]
             for i, variant in enumerate(variants):
                 path = self.work / f"variant-{i}.wav"
                 write_wav(path, variant)
                 actual = sample_path(render_file(path, self.settings)[1])
-                # Polarity/gain are invariant except PCM rounding. Trimming retains 10ms padding.
-                tolerance = 0.015 * 102.4 if i == 2 else 0.003
-                np.testing.assert_allclose(actual, reference, atol=tolerance)
+                np.testing.assert_allclose(actual, reference, atol=0.003)
 
     def test_energy_envelope_and_relative_timbre(self):
         audio = self.audio()
@@ -510,7 +519,7 @@ class InterfaceTests(FixtureCase):
         for method in ALGORITHMS:
             extra = ["--pitch", pitch] if method == "energy-pitch" else []
             self.run_cli("main.py", wav, f"{method}.svg", "--algorithm", method,
-                         "--max-width", 512, "--height", 256, "--smoothness", 0, *extra)
+                         "--max-width", 512, "--height", 256, "--stroke-width", 1, "--smoothness", 0, *extra)
             self.assertTrue((self.work / f"{method}.diagnostic.svg").is_file())
             self.assertEqual(ET.parse(self.work / f"{method}.svg").getroot().get("data-algorithm"), method)
         self.assertFalse((self.work / "tmp.svg").exists())
@@ -522,10 +531,17 @@ class InterfaceTests(FixtureCase):
         self.run_cli("main.py", wav, "x.svg", "--diagnostic", "custom.svg")
         self.assertTrue((self.work / "custom.svg").exists())
         self.assertFalse((self.work / "x.diagnostic.svg").exists())
+        root = ET.parse(self.work / "x.svg").getroot()
+        self.assertEqual(root.get("width"), "1024")
+        self.assertEqual(root.get("height"), "1024")
+        reference, artwork = root.findall("s:path", NS)
+        self.assertEqual(reference.get("stroke"), "#ccc")
+        self.assertEqual(artwork.get("stroke"), "black")
+        self.assertEqual(artwork.get("stroke-width"), "3.0")
 
     def test_parallel_cli_diagnostic_isolation(self):
         processes = [subprocess.Popen([sys.executable, str(REPO / "main.py"), str(self.wav), f"word-{i}.svg",
-                                      "--smoothness", "0", "--max-width", "512", "--height", "256"],
+                                      "--smoothness", "0", "--max-width", "512", "--height", "256", "--stroke-width", "1"],
                                      cwd=self.work, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                      for i in range(2)]
         for process in processes:
@@ -542,7 +558,7 @@ class InterfaceTests(FixtureCase):
         pitches = [known / f"{name}.pitch.json" for name in ("constant", "interrupted")]
         output = self.work / "comparison"
         self.run_cli("compare.py", *inputs, "--output-dir", output, "--pitch", *pitches,
-                     "--smoothness", 0, "--max-width", 512, "--height", 256)
+                     "--smoothness", 0, "--max-width", 512, "--height", 256, "--stroke-width", 1, "--no-circle")
         preview = ET.parse(output / "comparison.svg").getroot()
         self.assertEqual([text.text for text in preview.findall(".//s:text", NS)], list(ALGORITHMS))
         self.assertEqual(float(preview.get("width")), 1024)
@@ -569,12 +585,12 @@ class InterfaceTests(FixtureCase):
             write_wav(self.work / folder / "word.wav", signal(duration=0.4 if folder == "a" else 0.6))
         self.run_cli("compare.py", self.work / "a/word.wav", self.work / "b/word.wav", self.work / "a/word.wav",
                      "--output-dir", "three", "--algorithms", "baseline", "energy", "energy-timbre",
-                     "--smoothness", 0, "--max-width", 512, "--height", 256)
+                     "--smoothness", 0, "--max-width", 512, "--height", 256, "--stroke-width", 1)
         for method in ALGORITHMS[:3]:
             self.assertEqual(len(list((self.work / "three" / method / "words").glob("*.svg"))), 3)
         real = REPO / "samples/HelloWorld.wav"
         self.run_cli("compare.py", real, "--output-dir", "speech", "--algorithms", *ALGORITHMS[:3],
-                     "--smoothness", 0, "--poly-degree", 4, "--max-width", 512, "--height", 256)
+                     "--smoothness", 0, "--poly-degree", 4, "--max-width", 512, "--height", 256, "--stroke-width", 1)
         self.assertFalse((self.work / "speech/energy-pitch").exists())
 
     def test_merge_compatibility_and_optional_png(self):

@@ -66,8 +66,9 @@ failed renderers; native PNG dimensions are checked when available.
 - Every word is a **closed, connected smooth loop on the SAME nominal
   diameter and center**, independent of duration/sample count/method. Never
   auto-fit individual bounding boxes. Overlay overlap is intentional.
-- Artwork side is `min(max_width, height)`; `--circle` adds a gray reference,
-  never substitutes it. Use floating geometry and matching seam tangents.
+- Artwork side is `min(max_width, height)`; the light-gray reference circle is
+  enabled by default (`--no-circle` hides it), never a substitute for the curve.
+  Use floating geometry and matching seam tangents.
 - `energy-pitch` always requires validated known-source input, even at zero
   pitch weight. No invented Hz, no silent energy fallback, no speech estimates.
   Absolute pitch must survive centering as a broad shape component; mean

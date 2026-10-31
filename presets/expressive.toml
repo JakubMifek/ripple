@@ -4,6 +4,7 @@ version = 1
 color = "black"
 height = 1024
 stroke_width = 3.0
+circle = true
 deformation = 0.24
 roundness = 0.15
 baseline_gain = 19.2
