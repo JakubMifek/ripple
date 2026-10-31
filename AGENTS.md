@@ -94,7 +94,8 @@ explicitly. Do not silently skip failed inputs or render success-shaped
 partial pitch comparisons.
 
 Do not modify committed WAVs or regenerate `output/`, `output_names/`,
-`output_samples/`, root `tmp.svg` unless specifically required. Run new audio
+`output_samples/` unless specifically required. The obsolete root `tmp.svg`
+has been removed; do not recreate it. Run new audio
 checks in an isolated temporary directory, using absolute input/script paths.
 Do not run `names.sh` as a routine check. Tests use temporary directories and
 small analytic 16-bit mono/stereo fixtures; maintain exact feature assertions,

@@ -169,6 +169,45 @@ python3 src/compare.py samples/HelloWorld.wav \
 Individual curves, overlays, and diagnostics are in
 [`output_samples/hello-world-comparison/`](output_samples/hello-world-comparison/).
 
+### All sample comparisons
+
+Every WAV in `samples/` has a comparison using the project defaults. Each
+preview shows baseline, energy, and energy-timbre, with a light-gray reference
+circle. None of these files has a validated ground-truth pitch sidecar, so
+energy-pitch is not included.
+
+| Recording | Comparison |
+|---|---|
+| `A4_1s.wav` | [View](output_samples/a4-1s-comparison/comparison.svg) |
+| `Baltazar.wav` | [View](output_samples/baltazar-comparison/comparison.svg) |
+| `Eliska.wav` | [View](output_samples/eliska-comparison/comparison.svg) |
+| `HelloWorld.wav` | [View](output_samples/hello-world-comparison/comparison.svg) |
+| `Kuba.wav` | [View](output_samples/kuba-comparison/comparison.svg) |
+| `Leontynka.wav` | [View](output_samples/leontynka-comparison/comparison.svg) |
+
+Each comparison directory also contains individual curves, overlays, and
+diagnostics for the three methods.
+
+### Combined names example
+
+The [combined comparison](output_samples/names-comparison/comparison.svg)
+overlays **Kuba, Eliska, Baltazar, and Leontynka**, in that order. Each algorithm
+panel shares one nominal diameter and center across all four words.
+
+![Kuba, Eliska, Baltazar, and Leontynka overlaid by algorithm](output_samples/names-comparison/comparison.svg)
+
+```bash
+python3 src/compare.py samples/Kuba.wav samples/Eliska.wav \
+  samples/Baltazar.wav samples/Leontynka.wav \
+  --algorithms baseline energy energy-timbre \
+  --output-dir artwork/names-comparison
+```
+
+Standalone compositions:
+[baseline](output_samples/names-comparison/baseline/overlay.svg),
+[energy](output_samples/names-comparison/energy/overlay.svg),
+[energy-timbre](output_samples/names-comparison/energy-timbre/overlay.svg).
+
 ### Your recordings
 
 Use an explicit **new** output directory. With real recordings and no ground
