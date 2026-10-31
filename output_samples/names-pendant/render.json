@@ -1,0 +1,20 @@
+{
+  "blender_version": "4.5.13 LTS",
+  "engine": "Cycles CPU",
+  "seed": 37,
+  "word_count": 4,
+  "body_components": 1,
+  "removed_voxel_shells": 0,
+  "source_centerline_checks": 4096,
+  "body_dimensions_mm": [
+    37.76026517152786,
+    39.95514661073685,
+    0.731368490960449
+  ],
+  "chain_links": 47,
+  "resolution": 1600,
+  "samples": 256,
+  "gold": "Artistic warm yellow gold, metallic BSDF; not a certified alloy",
+  "geometry": "Source cubic centerlines; round wires, voxel-fused crossings and attachment eye",
+  "notice": "Rendered jewelry concept, not a photograph or manufacturing-ready model."
+}

@@ -33,6 +33,23 @@ download or manual pitch annotation is needed. Audio processing stays local.
 Have a microphone? Start with the [simple recording and pitch guide](docs/recording-guide.md):
 record/export a WAV in Audacity, then compare all five methods automatically.
 
+## Gold pendant visualization
+
+Turn the four-name composition into an openwork gold pendant with a chain,
+polished metal, studio reflections and contact shadows:
+
+```bash
+mkdir -p artwork
+python3 src/pendant.py --output-dir artwork/gold-pendant
+```
+
+This optional renderer requires local **Blender 4.5+**. It preserves the word
+curves and omits the gray guide; it is a jewelry simulation, not a fabrication
+model. See the [pendant guide](docs/pendant-guide.md) for setup, quality controls
+and editable scene export.
+
+![Rendered four-name gold pendant](output_samples/names-pendant/pendant.png)
+
 ## One recording
 
 ```bash

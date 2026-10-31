@@ -29,6 +29,9 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
   for each algorithm, labeled side-by-side algorithm preview.
 - `src/generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
 - `src/merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
+- `src/pendant.py`, `src/pendant_scene.py`: optional local Blender/Cycles gold
+  pendant renderer. The wrapper uses normal Python; the worker uses Blender's
+  Python. Read `docs/pendant-guide.md`. Do not add Blender to core dependencies.
 - `names.sh`: five-method comparison of four example names into a new
   explicit output directory; no parallel/shared-diagnostic race.
 - `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
@@ -121,6 +124,12 @@ failed renderers; native PNG dimensions are checked when available.
   canvas origin, not per-path bounds. Merge `METHOD/words/`, not diagnostics
   or labeled previews. `--output` is required; keep output outside input. General group transforms
   are not supported by its legacy path-only parser.
+- Pendant rendering consumes word/overlay SVGs, never diagnostics or previews.
+  Preserve source cubics and the shared nominal-diameter scale; omit marked
+  reference circles. Reject unsupported SVG transforms/CSS rather than flattening
+  them incorrectly. Keep real disconnected bodies and failed/missing Cycles
+  output as errors; never substitute a flat image. Deliver a visual concept,
+  not a claim of manufacturability. New output directories protect existing files.
 
 ## Changes and checks
 
