@@ -130,14 +130,20 @@ pitch sidecar.
 
 ![Hello World: baseline, energy, and energy-timbre](output_samples/hello-world-comparison/comparison.svg)
 
-Generated with the project defaults and these styling overrides (use a new
-output directory when reproducing):
+This uses the explicit [expressive preset](presets/expressive.toml), not the
+subtle project defaults. It reduces high-harmonic smoothing and increases
+deformation and feature weights, without normalizing each curve to fill its
+radial range. The same preset can be used for other recordings; it does not
+guarantee visible differences for every input. Baseline remains almost circular
+here because its signed-waveform midpoint profile contains little variation.
+
+To reproduce it, use a new output directory:
 
 ```bash
 python3 compare.py samples/HelloWorld.wav \
   --algorithms baseline energy energy-timbre \
   --output-dir artwork/hello-world-comparison \
-  --color black --height 1024 --stroke-width 3
+  --config presets/expressive.toml
 ```
 
 Individual curves, overlays, and diagnostics are in

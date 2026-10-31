@@ -1,0 +1,12 @@
+version = 1
+
+[render]
+color = "black"
+height = 1024
+stroke_width = 3.0
+deformation = 0.24
+roundness = 0.15
+
+[features]
+energy_weight = 3.0
+timbre_weight = 2.0
