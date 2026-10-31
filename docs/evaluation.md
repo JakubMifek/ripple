@@ -3,7 +3,12 @@
 Use `src/compare.py` with the **same configuration** for every word/algorithm.
 The algorithm panels contain the actual overlapping composition; also inspect
 the individual word curves and standalone `METHOD/overlay.svg`. Every word
-uses the same canvas, center, nominal diameter, orientation and stroke.
+uses the same canvas, center, nominal diameter, orientation policy and stroke.
+Default recording-hash orientation assigns each recording a stable angle,
+shared across its algorithm panels. The angle is decorative, not a measured
+voice characteristic. Use `--orientation fixed` for shape/invariance comparisons
+across different recordings, or undo their `data-start-angle` rotations before
+measuring differences. Even a small audio edit can change the hashed orientation.
 Never independently fit each bounding box to the canvas: that destroys the
 common-circle composition. Record the WAVs, configuration and CLI overrides
 so comparisons can be repeated. Record `[preprocess]` settings too: default

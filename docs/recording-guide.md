@@ -85,6 +85,10 @@ choose another name for another run. Analysis stays on your computer.
 
 To overlay several names, put their WAV paths after `src/compare.py`, before
 `--output-dir`. Every name will use the same nominal diameter and center.
+Each recording gets a repeatable starting angle so the quiet beginnings/endings
+do not all cluster on the right. This only rotates the curve; it does not change
+its shape. Add `--orientation fixed` to start every curve on the right when
+comparing shapes directly.
 
 For just the pitch-based curve:
 

@@ -37,7 +37,7 @@ def evaluate_profile(coefficients, theta):
     return values, derivative
 
 
-def radial_path(coefficients, render):
+def radial_path(coefficients, render, start_angle=0.0):
     count = render["points"]
     theta = np.arange(count) * (2 * np.pi / count)
     profile, derivative = evaluate_profile(coefficients, theta)
@@ -45,8 +45,9 @@ def radial_path(coefficients, render):
     nominal = side * render["nominal_radius"]
     radius = nominal * (1 + render["deformation"] * profile)
     dr = nominal * render["deformation"] * derivative
-    points = side / 2 * (1 + 1j) + radius * np.exp(1j * theta)
-    tangents = (dr + 1j * radius) * np.exp(1j * theta)
+    direction = np.exp(1j * (theta + np.deg2rad(start_angle)))
+    points = side / 2 * (1 + 1j) + radius * direction
+    tangents = (dr + 1j * radius) * direction
     step = 2 * np.pi / count
 
     def point(z):
@@ -60,17 +61,17 @@ def radial_path(coefficients, render):
     return " ".join(parts) + " Z"
 
 
-def circular_svg(coefficients, render, metadata=None):
+def circular_svg(coefficients, render, metadata=None, *, start_angle=0.0):
     side = min(render["max_width"], render["height"])
     paths = []
     if render["circle"]:
         paths.append({"d": radial_path(np.zeros(1, dtype=complex), render),
                       "stroke": "#c8c8c8", "stroke_width": REFERENCE_STROKE_WIDTH, "stroke-dasharray": "1 5",
                       "data-role": "reference-circle"})
-    paths.append({"d": radial_path(coefficients, render), "stroke": render["color"],
+    paths.append({"d": radial_path(coefficients, render, start_angle), "stroke": render["color"],
                   "stroke_width": render["stroke_width"]})
     details = {
         "algorithm": render["algorithm"], "nominal-diameter": 2 * render["nominal_radius"] * side,
-        "center": f"{side / 2},{side / 2}"}
+        "center": f"{side / 2},{side / 2}", "start-angle": start_angle}
     details.update(metadata or {})
     return create_waveform_svg(side, side, paths, details)

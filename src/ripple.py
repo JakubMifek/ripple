@@ -113,13 +113,13 @@ def diagnostic_svg(audio, render, profile, waveform, envelopes, metadata=None):
 
 def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None,
            height=None, fitting=None, color=None, circle=None, *,
-           algorithm=None, settings=None, pitch_data=None, baseline_gain=None) -> tuple[str, str]:
+           algorithm=None, settings=None, pitch_data=None, baseline_gain=None, orientation=None) -> tuple[str, str]:
     """Shared preprocessing and periodic geometry, independent of export dimensions."""
     if settings is None:
         settings = load_config(overrides={
             "smoothness": smoothness, "detail": poly_degree, "max_width": max_width,
             "height": height, "fitting": fitting, "color": color, "circle": circle,
-            "algorithm": algorithm, "baseline_gain": baseline_gain})
+            "algorithm": algorithm, "baseline_gain": baseline_gain, "orientation": orientation})
     else:
         validate_config(settings)
     render = settings["render"]
@@ -128,7 +128,10 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
     audio = preprocess(wf, settings["preprocess"])
     if render["algorithm"] in PITCH_ALGORITHMS and pitch_data is None:
         pitch_data = estimate_pitch(audio, settings["pitch_estimation"])
-    metadata = pitch_data.metadata if pitch_data is not None else None
+    start_angle = audio.start_angle if render["orientation"] == "recording" else 0.0
+    metadata = {"orientation": render["orientation"], "start-angle": start_angle}
+    if pitch_data is not None:
+        metadata.update(pitch_data.metadata)
     if render["algorithm"] == "baseline":
         profile, waveform, envelopes = baseline_profile(audio, render)
     else:
@@ -145,6 +148,6 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
             envelopes.append(list(zip(features["pitch_time"], features["pitch"])))
     gain = render["baseline_gain"] if render["algorithm"] == "baseline" else 1
     coefficients = periodic_coefficients(profile * gain, render["detail"], render["roundness"])
-    diagnostic_metadata = {**(metadata or {}), "trim-method": settings["preprocess"]["trim_method"]}
+    diagnostic_metadata = {**metadata, "trim-method": settings["preprocess"]["trim_method"]}
     return (diagnostic_svg(audio, render, profile, waveform, envelopes, diagnostic_metadata),
-            circular_svg(coefficients, render, metadata))
+            circular_svg(coefficients, render, metadata, start_angle=start_angle))

@@ -1,7 +1,9 @@
 """Shared 16-bit PCM decoding and utterance-preserving preprocessing."""
 
 from dataclasses import dataclass
+import hashlib
 import math
+import struct
 import numpy as np
 
 
@@ -12,6 +14,13 @@ class Audio:
     original_frames: int
     start: int
     end: int
+    start_angle: float
+
+
+def recording_angle(raw, rate, channels):
+    """Stable clockwise angle from original PCM and its format, not filename or trim."""
+    digest = hashlib.sha256(b"ripple-orientation-v1\0" + struct.pack("<IH", rate, channels) + raw).digest()
+    return int.from_bytes(digest[:4], "big") * (360.0 / 2**32)
 
 
 def activity_bounds(samples, rate, settings):
@@ -80,4 +89,4 @@ def preprocess(wf, settings):
     if end - start < 4:
         raise ValueError("Trimmed recording is too short.")
     samples = samples[start:end] * (settings["normalize_peak"] / peak)
-    return Audio(samples, rate, count, start, end)
+    return Audio(samples, rate, count, start, end, recording_angle(raw, rate, channels))

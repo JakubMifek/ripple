@@ -78,6 +78,31 @@ Very small canvases need a thinner stroke to retain the full deformation
 margin, for example `--height 256 --stroke-width 1`. These are scalable exports, not
 fixed physical tattoo dimensions or a claim of tattoo readiness.
 
+Each recording now starts at its own **deterministic hash angle**, rather than
+all curves meeting at 0 degrees on the right. This rotates the whole curve
+around the common center: it spreads the low-energy start/end regions without
+changing their depth, the shape, diameter, smoothness or audio features. The
+gray reference circle stays unchanged. Hashing does not guarantee evenly spaced
+angles or eliminate all overlap; identical recordings still overlap exactly.
+
+`render.orientation = "recording"` is the default. The angle is in `[0, 360)`
+degrees, clockwise from the right. It uses SHA-256 of the version prefix
+`b"ripple-orientation-v1\0"`, sample rate and channel count packed as little-endian
+`<IH`, and the original interleaved 16-bit PCM bytes. The first four digest bytes,
+read as a big-endian integer, are multiplied by `360 / 2**32`.
+The hash uses the original audio, **before** averaging, DC removal, trimming
+and normalization.
+Renaming a WAV, changing non-audio container metadata, or changing render/trim
+settings does not alter its recording angle. Editing its samples, sample rate
+or channel count does. This is a decorative orientation, not a voice feature
+or evidence of uniqueness; it is separate from the whole-file hash for pitch sidecars.
+
+Use `--orientation fixed` in either CLI (or `render.orientation = "fixed"`) to
+restore the previous zero-degree start, for example when comparing shapes
+without decorative rotation. A recording uses the same angle in every algorithm
+and export size. Rotation is baked into the path coordinates and tangents, not
+an SVG group transform, so legacy path-only merging retains it.
+
 Each conversion writes `OUTPUT_STEM.diagnostic.svg` beside the artwork,
 or the path specified with `--diagnostic`. It no longer writes shared
 `tmp.svg`: parallel conversions with distinct output stems are isolated.
@@ -90,6 +115,10 @@ and green is pitch modulation. Timbre methods show the corrected, unweighted
 timbre residual in blue by default. Both SVGs retain pitch provenance and estimator versions.
 Diagnostics also record `data-trim-method`, `data-trim-start` and `data-trim-end`;
 the bounds are original WAV sample-frame indices, with an exclusive end.
+Both SVGs also carry `data-orientation` and `data-start-angle`. Comparison word
+groups retain each recording's values; a multiword overlay does not claim a
+single start angle when its words differ. Diagnostic time still runs left to
+right and is not rotated.
 
 ## Configuration and artistic controls
 

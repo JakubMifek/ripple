@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 import statistics
+import struct
 import subprocess
 import sys
 import tempfile
@@ -21,7 +22,7 @@ REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "src"
 sys.path.insert(0, str(SRC))
 
-from audio import preprocess
+from audio import preprocess, recording_angle
 from compare import comparison_preview, overlay
 from config import ALGORITHMS, DEFAULT_CONFIG, PITCH_ALGORITHMS, config_from_args, load_config, validate_config
 from features import frame_features, feature_profile, timbre_profile, timbre_residual
@@ -30,7 +31,7 @@ from geometry import circular_svg, evaluate_profile, periodic_coefficients
 from main import main as main_command, parse_args, render_file
 from merge import export_png
 from pitch import Pitch, estimate_pitch, load_pitch, wav_hash
-from ripple import create_svg_path
+from ripple import create_svg_path, ripple
 from utils import SVG_NS, smooth_waveform
 
 NS = {"s": SVG_NS}
@@ -84,8 +85,10 @@ class FixtureCase(unittest.TestCase):
         self.work = Path(self.temporary.name)
         self.wav = self.work / "word.wav"
         write_wav(self.wav, signal())
+        # Feature invariances exclude decorative rotation; OrientationTests cover hashed orientation.
         self.settings = load_config(overrides={"smoothness": 0, "detail": 8, "max_width": 512, "height": 256,
-                                              "stroke_width": 1, "deformation": 0.18, "circle": False})
+                                              "stroke_width": 1, "deformation": 0.18, "circle": False,
+                                              "orientation": "fixed"})
 
     def audio(self, path=None):
         with wave.open(str(path or self.wav), "rb") as wf:
@@ -132,6 +135,7 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(defaults["render"]["color"], "black")
         self.assertEqual(defaults["render"]["stroke_width"], 3)
         self.assertTrue(defaults["render"]["circle"])
+        self.assertEqual(defaults["render"]["orientation"], "recording")
         self.assertEqual(defaults["render"]["deformation"], 0.24)
         self.assertEqual(defaults["render"]["roundness"], 0.15)
         self.assertEqual(defaults["render"]["baseline_gain"], 19.2)
@@ -148,14 +152,16 @@ class ConfigurationTests(FixtureCase):
             "floor_hz": 60.0, "ceiling_hz": 600.0, "hop_ms": 10.0, "voicing_threshold": 0.45})
         self.assertEqual(defaults, load_config(REPO / "presets/expressive.toml"))
         config = self.work / "custom.toml"
-        config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\nbaseline_gain = 4\n')
+        config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\nbaseline_gain = 4\norientation = "fixed"\n')
         _, args = parse_args([str(self.wav), "x.svg", "--config", str(config), "--poly-degree", "7",
-                              "--no-circle", "--baseline-gain", "8"])
+                              "--no-circle", "--baseline-gain", "8", "--orientation", "recording"])
         settings = config_from_args(args)
         self.assertEqual(settings["render"]["color"], "blue")
         self.assertEqual(settings["render"]["detail"], 7)
         self.assertFalse(settings["render"]["circle"])
         self.assertEqual(settings["render"]["baseline_gain"], 8)
+        self.assertEqual(settings["render"]["orientation"], "recording")
+        self.assertEqual(load_config(config)["render"]["orientation"], "fixed")
         self.assertEqual(settings["preprocess"], defaults["preprocess"])
 
     def test_unknown_invalid_and_method_restrictions(self):
@@ -178,6 +184,8 @@ class ConfigurationTests(FixtureCase):
             "version = 1\n[render]\nbaseline_gain = -1",
             "version = 1\n[render]\nbaseline_gain = 65",
             "version = 1\n[render]\nbaseline_gain = nan",
+            'version = 1\n[render]\norientation = "random"',
+            "version = 1\n[render]\norientation = true",
             'version = 1\n[preprocess]\ntrim_method = "speech"',
             "version = 1\n[preprocess]\ntrim_method = true",
             "version = 1\n[preprocess]\ntrim_trigger_db = nan",
@@ -417,7 +425,7 @@ class FeatureTests(FixtureCase):
         self.assertEqual(values["time"][0], 0)
         self.assertEqual(values["time"][-1], 1)
         constant = np.sin(2*np.pi*200*np.arange(4000)/8000) * 0.8
-        audio = type(audio)(constant, 8000, 4000, 0, 4000)
+        audio = type(audio)(constant, 8000, 4000, 0, 4000, start_angle=0.0)
         rms = frame_features(audio, self.settings["features"])["energy"]
         expected = (0.8 / math.sqrt(2)) ** self.settings["features"]["compression"]
         np.testing.assert_allclose(rms[1:-1], expected, atol=1e-12)
@@ -862,6 +870,122 @@ class PitchEstimationTests(FixtureCase):
         self.assertIn("Praat", groups[1].get("data-pitch-estimator"))
         preview = ET.fromstring(comparison_preview({"energy-pitch": combined}, 256))
         self.assertEqual(preview.find(".//s:text", NS).text, "energy-pitch (mixed sources)")
+
+
+class OrientationTests(FixtureCase):
+    def test_hash_mapping_is_stable_bounded_and_includes_format(self):
+        raw = bytes.fromhex("00000100ffff0200")
+        self.assertEqual(recording_angle(raw, 8000, 1), 276.6684186179191)
+        self.assertNotEqual(recording_angle(raw, 16000, 1), recording_angle(raw, 8000, 1))
+        self.assertNotEqual(recording_angle(raw, 8000, 2), recording_angle(raw, 8000, 1))
+        self.assertNotEqual(recording_angle(raw[::-1], 8000, 1), recording_angle(raw, 8000, 1))
+        for byte, expected in ((0, 0.0), (255, (2**32 - 1) * (360.0 / 2**32))):
+            with mock.patch("audio.hashlib.sha256") as hashed:
+                hashed.return_value.digest.return_value = bytes([byte]) * 32
+                angle = recording_angle(raw, 8000, 1)
+            self.assertEqual(angle, expected)
+            self.assertGreaterEqual(angle, 0)
+            self.assertLess(angle, 360)
+
+    def test_angle_ignores_filename_container_metadata_and_preprocessing(self):
+        write_wav(self.wav, np.pad(signal(), (800, 1600)))
+        original = self.audio()
+        renamed = self.work / "renamed.wav"
+        renamed.write_bytes(self.wav.read_bytes())
+        self.assertEqual(self.audio(renamed).start_angle, original.start_angle)
+        data = self.wav.read_bytes()
+        chunk = b"JUNK" + struct.pack("<I", 4) + b"note"
+        renamed.write_bytes(data[:4] + struct.pack("<I", len(data) + len(chunk) - 8) + data[8:] + chunk)
+        self.assertNotEqual(wav_hash(renamed), wav_hash(self.wav))
+        self.assertEqual(self.audio(renamed).start_angle, original.start_angle)
+        self.settings["preprocess"].update(trim_padding_ms=0, normalize_peak=0.5)
+        altered = self.audio()
+        self.assertNotEqual((altered.start, altered.end), (original.start, original.end))
+        self.assertEqual(altered.start_angle, original.start_angle)
+        write_wav(renamed, np.pad(signal(gain=0.3), (800, 1600)))
+        self.assertNotEqual(self.audio(renamed).start_angle, original.start_angle)
+
+    def test_all_algorithms_and_baseline_fits_are_pure_rotations(self):
+        angle = self.audio().start_angle
+        rotation = np.exp(1j * np.deg2rad(angle))
+        center = 128 + 128j
+        for method, fitting in [(method, "fourier") for method in ALGORITHMS] + [("baseline", "poly")]:
+            with self.subTest(method=method, fitting=fitting):
+                self.settings["render"].update(algorithm=method, fitting=fitting, circle=True)
+                fixed = render_file(self.wav, self.settings)
+                selected = copy.deepcopy(self.settings)
+                selected["render"]["orientation"] = "recording"
+                rotated = render_file(self.wav, selected)
+                original_root, rotated_root = ET.fromstring(fixed[1]), ET.fromstring(rotated[1])
+                self.assertEqual(float(rotated_root.get("data-start-angle")), angle)
+                self.assertEqual(rotated_root.get("data-orientation"), "recording")
+                for key in ("width", "height", "data-center", "data-nominal-diameter"):
+                    self.assertEqual(original_root.get(key), rotated_root.get(key))
+                self.assertEqual(original_root.find("s:path", NS).attrib, rotated_root.find("s:path", NS).attrib)
+                original_path, rotated_path = paths(fixed[1])[-1], paths(rotated[1])[-1]
+                original_points = np.array([getattr(seg, key) for seg in original_path
+                                            for key in ("start", "control1", "control2", "end")])
+                rotated_points = np.array([getattr(seg, key) for seg in rotated_path
+                                           for key in ("start", "control1", "control2", "end")])
+                np.testing.assert_allclose(rotated_points, center + (original_points - center) * rotation,
+                                           atol=2e-9, rtol=0)
+                self.assertTrue(rotated_path.isclosed() and rotated_path.iscontinuous())
+                for a, b in zip(rotated_path, list(rotated_path)[1:] + [rotated_path[0]]):
+                    self.assertLess(abs(a.derivative(1) - b.derivative(0)), 1e-8)
+                original_diag, rotated_diag = ET.fromstring(fixed[0]), ET.fromstring(rotated[0])
+                self.assertEqual([p.attrib for p in original_diag.findall("s:path", NS)],
+                                 [p.attrib for p in rotated_diag.findall("s:path", NS)])
+                self.assertEqual(float(rotated_diag.get("data-start-angle")), angle)
+
+    def test_direct_api_and_export_size_use_the_same_angle(self):
+        self.settings["render"].update(algorithm="energy-timbre-pitch", orientation="recording")
+        expected = render_file(self.wav, self.settings)
+        with wave.open(str(self.wav), "rb") as wav:
+            wav.readframes(23)
+            self.assertEqual(ripple(wav, settings=self.settings), expected)
+        larger = copy.deepcopy(self.settings)
+        larger["render"].update(max_width=1024, height=512, color="blue")
+        scaled = render_file(self.wav, larger)[1]
+        self.assertEqual(ET.fromstring(scaled).get("data-start-angle"),
+                         ET.fromstring(expected[1]).get("data-start-angle"))
+        np.testing.assert_allclose(sample_path(scaled) / 2, sample_path(expected[1]), atol=1e-9, rtol=0)
+
+    def test_cli_and_overlays_retain_each_recordings_angle(self):
+        other, duplicate = self.work / "other.wav", self.work / "duplicate.wav"
+        write_wav(other, signal(hz=330))
+        duplicate.write_bytes(self.wav.read_bytes())
+        expected = [self.audio(path).start_angle for path in (self.wav, other, duplicate)]
+        self.assertNotEqual(expected[0], expected[1])
+        self.assertEqual(expected[0], expected[2])
+        self.run_cli("main.py", self.wav, "single.svg", "--algorithm", "energy")
+        self.assertEqual(float(ET.parse(self.work / "single.svg").getroot().get("data-start-angle")), expected[0])
+        for mode in ("recording", "fixed"):
+            self.run_cli("compare.py", self.wav, other, duplicate, "--algorithms", "energy",
+                         "--orientation", mode, "--output-dir", mode)
+            root = ET.parse(self.work / mode / "energy/overlay.svg").getroot()
+            groups = root.findall("s:g", NS)
+            angles = expected if mode == "recording" else [0.0] * 3
+            self.assertEqual([float(g.get("data-start-angle")) for g in groups], angles)
+            self.assertEqual(root.get("data-orientation"), mode)
+            self.assertEqual(root.get("data-start-angle"), None if mode == "recording" else "0.0")
+            self.assert_reference_circle(root[0])
+            self.assertEqual(len(root.findall(".//s:path", NS)), 4)
+            self.assertTrue(all("transform" not in g.attrib for g in groups))
+            preview = ET.parse(self.work / mode / "comparison.svg").getroot()
+            preview_groups = preview.findall(".//s:g[@data-word]", NS)
+            self.assertEqual([float(g.get("data-start-angle")) for g in preview_groups], angles)
+
+    def test_legacy_merge_preserves_baked_rotation(self):
+        self.settings["render"].update(orientation="recording", circle=True)
+        inputs = self.work / "inputs"
+        inputs.mkdir()
+        circular = render_file(self.wav, self.settings)[1]
+        (inputs / "word.svg").write_text(circular)
+        self.run_cli("merge.py", inputs, "--width", "512", "--height", "512",
+                     "--output", "merged.svg", "--no-png")
+        merged = (self.work / "merged.svg").read_text()
+        np.testing.assert_allclose(sample_path(merged), 2 * sample_path(circular), atol=1e-8, rtol=0)
+        self.assert_reference_circle(ET.fromstring(merged)[0])
 
 
 class GeometryTests(FixtureCase):

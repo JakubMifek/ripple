@@ -12,6 +12,7 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
   validation and shared CLI options. Defaults -> explicit config -> CLI.
 - `src/audio.py`: floating channel averaging, DC removal, sustained-RMS trimming
   with quiet boundary extension, gain normalization; retains original offsets.
+  `Audio.start_angle` uses original, unprocessed PCM plus rate/channels.
   `presets/legacy-trim.toml` reproduces the former sample-peak trimming.
 - `src/ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
   smoothing/extrema/recursive midpoints, diagnostic SVG. `ripple()` returns
@@ -76,6 +77,13 @@ failed renderers; native PNG dimensions are checked when available.
 - Every word is a **closed, connected smooth loop on the SAME nominal
   diameter and center**, independent of duration/sample count/method. Never
   auto-fit individual bounding boxes. Overlay overlap is intentional.
+- Default `render.orientation = "recording"` uses the versioned original-audio
+  hash angle, identical across algorithms/export sizes and independent of paths
+  or preprocessing settings. Bake the rigid rotation into points and tangents,
+  never SVG group transforms. Do not rotate reference paths: keep them identical
+  for deduplication. Preserve per-word orientation metadata through comparisons.
+  `--orientation fixed` restores 0 degrees; use it for feature/gain/padding
+  invariances so decorative hash rotation does not masquerade as a shape change.
 - Artwork side is `min(max_width, height)`; the light-gray reference circle is
   enabled by default (`--no-circle` hides it), never a substitute for the curve.
   Mark it with `data-role="reference-circle"`: light `#c8c8c8`, 2 px, dotted.

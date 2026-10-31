@@ -169,6 +169,10 @@ Fourier-smoothed to make a bounded, rounded, connected periodic curve. As with
 any global Fourier representation, geometric effects can extend into adjacent
 unvoiced angular regions; this is rendering, not evidence of voicing there.
 The circular seam is also artistic, not a claim that the utterance is periodic.
+Default recording-hash orientation rotates this entire curve without changing
+pitch extraction, modulation or sample alignment. The same recording gets the
+same angle with estimated or supplied pitch. Unlike the strict whole-file hash
+in a pitch sidecar, the orientation hash ignores non-audio WAV metadata.
 
 Explicitly supplied missing/malformed/estimated-source/mismatched/incomplete
 sidecars fail, even when pitch weight is zero. No energy-only fallback is

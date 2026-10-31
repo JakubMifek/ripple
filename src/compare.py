@@ -18,11 +18,15 @@ def word_name(index, path):
     return f"{index:02d}-{slug}-{digest}"
 
 
+def word_metadata(root):
+    return {key: value for key, value in root.attrib.items()
+            if key.startswith("data-pitch-") or key in ("data-start-angle", "data-orientation")}
+
+
 def overlay(documents, labels, method):
     parsed = [ET.fromstring(document) for document in documents]
     root = ET.Element(parsed[0].tag, parsed[0].attrib)
-    metadata = [{k: v for k, v in document.attrib.items() if k.startswith("data-pitch-")}
-                for document in parsed]
+    metadata = [word_metadata(document) for document in parsed]
     for key in metadata[0]:
         if any(values.get(key) != metadata[0][key] for values in metadata):
             root.attrib.pop(key)
@@ -58,7 +62,7 @@ def comparison_preview(overlays, side):
             label = {"estimated": "estimated", "mixed": "mixed sources"}.get(source, "known")
             text.text += f" ({label})"
         art = ET.SubElement(group, f"{{{SVG_NS}}}g", transform=f"translate(0,{label_height})")
-        art.attrib.update({k: v for k, v in overlay_root.attrib.items() if k.startswith("data-pitch-")})
+        art.attrib.update(word_metadata(overlay_root))
         art.extend(list(overlay_root))
     return ET.tostring(root, encoding="unicode")
 

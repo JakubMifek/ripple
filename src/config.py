@@ -12,7 +12,7 @@ PITCH_ALGORITHMS = ("energy-pitch", "energy-timbre-pitch")
 REFERENCE_STROKE_WIDTH = 2
 DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "ripple.toml"
 SCHEMA = {
-    "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
+    "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle", "orientation",
                "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness", "baseline_gain"},
     "preprocess": {"trim_method", "trim_trigger_db", "trim_db", "trim_padding_ms", "normalize_peak"},
     "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight", "timbre_mode",
@@ -77,6 +77,8 @@ def validate_config(settings):
         raise ValueError(f"algorithm must be one of {ALGORITHMS}.")
     if r["fitting"] not in ("poly", "fourier"):
         raise ValueError("fitting must be poly or fourier.")
+    if r["orientation"] not in ("recording", "fixed"):
+        raise ValueError("orientation must be recording or fixed.")
     if r["algorithm"] != "baseline" and r["fitting"] != "fourier":
         raise ValueError("Polynomial fitting is supported only by baseline.")
     if type(r["circle"]) is not bool:
@@ -141,6 +143,8 @@ def validate_config(settings):
 def add_render_arguments(parser):
     parser.add_argument("--config", type=Path, help="Version-1 TOML overrides (project defaults are always loaded first)")
     parser.add_argument("--algorithm", choices=ALGORITHMS)
+    parser.add_argument("--orientation", choices=("recording", "fixed"),
+                        help="Start angle: stable recording hash (default) or fixed at 0 degrees")
     parser.add_argument("--mode", choices=["Ripple"], default="Ripple", help="Legacy mode name")
     parser.add_argument("--smoothness", type=float, help="Baseline cyclic signed-waveform smoothing, 0 to 1")
     parser.add_argument("--baseline-gain", type=float, help="Fixed baseline profile contrast, 0 to 64; 1 preserves unscaled extraction")
@@ -161,5 +165,5 @@ def add_render_arguments(parser):
 def config_from_args(args):
     return load_config(args.config, {key: getattr(args, key, None) for key in (
         "algorithm", "smoothness", "detail", "max_width", "height", "fitting",
-        "color", "stroke_width", "deformation", "roundness", "circle", "baseline_gain")},
+        "color", "stroke_width", "deformation", "roundness", "circle", "baseline_gain", "orientation")},
         {"pitch_weight": getattr(args, "pitch_sensitivity", None)})
