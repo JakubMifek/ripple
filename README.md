@@ -210,12 +210,33 @@ directly from each WAV, without sidecars.
 | `A4_1s.wav` | [View](output_samples/a4-1s-comparison/comparison.svg) |
 | `Baltazar.wav` | [View](output_samples/baltazar-comparison/comparison.svg) |
 | `Eliska.wav` | [View](output_samples/eliska-comparison/comparison.svg) |
+| `Eliska (1).wav` through `Eliska (6).wav` | [View all six](output_samples/eliska-recordings-comparison/comparison.svg) |
 | `HelloWorld.wav` | [View](output_samples/hello-world-comparison/comparison.svg) |
 | `Kuba.wav` | [View](output_samples/kuba-comparison/comparison.svg) |
 | `Leontynka.wav` | [View](output_samples/leontynka-comparison/comparison.svg) |
 
 Each comparison directory also contains individual curves, overlays, and
 diagnostics for all five methods.
+
+### Six Eliska recordings
+
+The [Eliska recordings comparison](output_samples/eliska-recordings-comparison/comparison.svg)
+overlays all six recordings from [the uploaded set](https://github.com/JakubMifek/ripple/commit/c86aa151c9db46e1926b60a9351a530075d19a8f),
+in numeric order, in each of the five algorithm panels. Each recording shares
+the same nominal diameter and center, with one faint dotted reference beneath
+all six black curves. Pitch is estimated automatically for the last two styles.
+
+![Six Eliska recordings compared with all five algorithms](output_samples/eliska-recordings-comparison/comparison.svg)
+
+```bash
+python3 src/compare.py "samples/Eliska (1).wav" "samples/Eliska (2).wav" \
+  "samples/Eliska (3).wav" "samples/Eliska (4).wav" \
+  "samples/Eliska (5).wav" "samples/Eliska (6).wav" \
+  --output-dir artwork/eliska-recordings-comparison
+```
+
+Individual recording curves and diagnostics are included under each algorithm
+in the [comparison directory](output_samples/eliska-recordings-comparison/).
 
 ### Combined names example
 
