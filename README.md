@@ -50,6 +50,10 @@ and editable scene export.
 
 ![Rendered four-name gold pendant](output_samples/names-pendant/pendant.png)
 
+Final recordings of **Denisa, Eliska, Jiri and Jitka**:
+[composed SVG](output_samples/final-names-composition/energy-timbre-pitch/overlay.svg)
+and [gold pendant render](output_samples/final-names-pendant/pendant.png).
+
 ## One recording
 
 Single conversions default to **energy-timbre-pitch**, combining energy,
