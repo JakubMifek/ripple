@@ -161,14 +161,14 @@ analysis error fails explicitly, even with zero pitch weight.
 ### Hello World example
 
 The [Hello World comparison](output_samples/hello-world-comparison/comparison.svg)
-shows the same recording with baseline, energy, and energy-timbre, left to right.
-All three use the same nominal diameter and center within their panels.
+shows the same recording with baseline, energy, energy-timbre, and energy-pitch,
+left to right. All four use the same nominal diameter and center within their panels.
 The light-gray reference circle shows that nominal radius; the black curve
 shows the recording's inward and outward deviations.
-This committed three-method preview predates automatic pitch estimation.
-Omit `--algorithms` in the command below to make a new four-method comparison.
+The fourth panel uses automatic Praat pitch estimation and is labeled
+**energy-pitch (estimated)**; it does not claim known ground truth.
 
-![Hello World: baseline, energy, and energy-timbre](output_samples/hello-world-comparison/comparison.svg)
+![Hello World: baseline, energy, energy-timbre, and estimated energy-pitch](output_samples/hello-world-comparison/comparison.svg)
 
 This uses the **project defaults**, including the stronger contour settings and
 gray reference circles. The optional [expressive preset](presets/expressive.toml)
@@ -183,7 +183,6 @@ To reproduce it, use a new output directory:
 
 ```bash
 python3 src/compare.py samples/HelloWorld.wav \
-  --algorithms baseline energy energy-timbre \
   --output-dir artwork/hello-world-comparison
 ```
 
@@ -193,9 +192,9 @@ Individual curves, overlays, and diagnostics are in
 ### All sample comparisons
 
 Every WAV in `samples/` has a comparison using the project defaults. Each
-preview shows baseline, energy, and energy-timbre, with a light-gray reference
-circle. These committed previews retain the original three-method comparisons;
-fresh comparisons now include estimated `energy-pitch` by default, without sidecars.
+preview shows baseline, energy, energy-timbre, and estimated energy-pitch,
+with a faint dotted reference circle beneath the artwork. Pitch is estimated
+directly from each WAV, without sidecars.
 
 | Recording | Comparison |
 |---|---|
@@ -207,7 +206,7 @@ fresh comparisons now include estimated `energy-pitch` by default, without sidec
 | `Leontynka.wav` | [View](output_samples/leontynka-comparison/comparison.svg) |
 
 Each comparison directory also contains individual curves, overlays, and
-diagnostics for the three methods.
+diagnostics for all four methods.
 
 ### Combined names example
 
@@ -215,20 +214,21 @@ The [combined comparison](output_samples/names-comparison/comparison.svg)
 overlays **Kuba, Eliska, Baltazar, and Leontynka**, in that order. Each algorithm
 panel shares one nominal diameter and center across all four words, with a
 single dotted reference circle in the lowest layer beneath every black curve.
+The fourth panel uses automatically estimated pitch for each name.
 
 ![Kuba, Eliska, Baltazar, and Leontynka overlaid by algorithm](output_samples/names-comparison/comparison.svg)
 
 ```bash
 python3 src/compare.py samples/Kuba.wav samples/Eliska.wav \
   samples/Baltazar.wav samples/Leontynka.wav \
-  --algorithms baseline energy energy-timbre \
   --output-dir artwork/names-comparison
 ```
 
 Standalone compositions:
 [baseline](output_samples/names-comparison/baseline/overlay.svg),
 [energy](output_samples/names-comparison/energy/overlay.svg),
-[energy-timbre](output_samples/names-comparison/energy-timbre/overlay.svg).
+[energy-timbre](output_samples/names-comparison/energy-timbre/overlay.svg),
+[energy-pitch (estimated)](output_samples/names-comparison/energy-pitch/overlay.svg).
 
 ### Your recordings
 
