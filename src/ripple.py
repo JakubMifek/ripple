@@ -4,7 +4,7 @@ import math
 import wave
 import numpy as np
 from audio import preprocess
-from config import load_config, validate_config
+from config import PITCH_ALGORITHMS, TIMBRE_ALGORITHMS, load_config, validate_config
 from features import frame_features, feature_profile
 from geometry import periodic_coefficients, circular_svg
 from pitch import estimate_pitch
@@ -101,7 +101,7 @@ def diagnostic_svg(audio, render, profile, waveform, envelopes, metadata=None):
         paths.append({"d": create_svg_path(points), "stroke": color, "stroke_width": 1})
 
     add(np.linspace(0, 1, len(waveform)), waveform, "#888")
-    for points, color in zip(envelopes, ("red", "#023e8a")):
+    for points, color in zip(envelopes, ("red", "#023e8a", "#2a9d8f")):
         if points:
             time, values = zip(*points)
             add(time, values, color)
@@ -123,10 +123,10 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
     else:
         validate_config(settings)
     render = settings["render"]
-    if render["algorithm"] != "energy-pitch" and pitch_data is not None:
-        raise ValueError("Pitch input is only supported by energy-pitch.")
+    if render["algorithm"] not in PITCH_ALGORITHMS and pitch_data is not None:
+        raise ValueError("Pitch input is only supported by energy-pitch or energy-timbre-pitch.")
     audio = preprocess(wf, settings["preprocess"])
-    if render["algorithm"] == "energy-pitch" and pitch_data is None:
+    if render["algorithm"] in PITCH_ALGORITHMS and pitch_data is None:
         pitch_data = estimate_pitch(audio, settings["pitch_estimation"])
     metadata = pitch_data.metadata if pitch_data is not None else None
     if render["algorithm"] == "baseline":
@@ -134,10 +134,11 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
     else:
         features = frame_features(audio, settings["features"], pitch_data)
         profile = feature_profile(features, render["algorithm"], settings["features"])
-        secondary = (features["pitch_time"], features["pitch"]) if pitch_data is not None else (
-            features["time"], features["timbre"])
-        waveform, envelopes = audio.samples, [
-            list(zip(features["time"], features["energy"])), list(zip(*secondary))]
+        waveform, envelopes = audio.samples, [list(zip(features["time"], features["energy"]))]
+        if pitch_data is None or render["algorithm"] in TIMBRE_ALGORITHMS:
+            envelopes.append(list(zip(features["time"], features["timbre"])))
+        if pitch_data is not None:
+            envelopes.append(list(zip(features["pitch_time"], features["pitch"])))
     gain = render["baseline_gain"] if render["algorithm"] == "baseline" else 1
     coefficients = periodic_coefficients(profile * gain, render["detail"], render["roundness"])
     return (diagnostic_svg(audio, render, profile, waveform, envelopes, metadata),

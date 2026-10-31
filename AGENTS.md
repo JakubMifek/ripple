@@ -27,7 +27,7 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
   for each algorithm, labeled side-by-side algorithm preview.
 - `src/generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
 - `src/merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
-- `names.sh`: four-method comparison of four example names into a new
+- `names.sh`: five-method comparison of four example names into a new
   explicit output directory; no parallel/shared-diagnostic race.
 - `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
 
@@ -56,7 +56,7 @@ failed renderers; native PNG dimensions are checked when available.
 
 ## Contracts to preserve
 
-- Shared preprocessing applies to **all four methods**, including baseline.
+- Shared preprocessing applies to **all five methods**, including baseline.
   Preserve internal pauses and sample-rate/original-frame alignment.
 - Default algorithm is baseline. `--smoothness` is baseline-only; `--poly-degree`
   (alias `--detail`) controls fit detail. Polynomial fit is baseline-only and
@@ -75,7 +75,7 @@ failed renderers; native PNG dimensions are checked when available.
   Deduplicate identical references below all word curves in comparisons and
   legacy merges; artwork stroke settings must not change reference thickness.
   Use floating geometry and matching seam tangents.
-- `energy-pitch` estimates automatically when no `--pitch` is supplied.
+- `energy-pitch` and `energy-timbre-pitch` estimate automatically without `--pitch`.
   Supplied known-source sidecars bypass estimation and retain strict validation;
   invalid sidecars never fall back to estimation. Missing/failed estimation or
   no voiced frames fail explicitly, even at zero pitch weight.
@@ -84,10 +84,14 @@ failed renderers; native PNG dimensions are checked when available.
   and preview labels; estimates must never masquerade as known-source JSON.
   Absolute pitch must survive centering as a broad shape component; mean
   subtraction must not erase it. Unvoiced source modulation is zero.
+- Reuse `PITCH_ALGORITHMS` and `TIMBRE_ALGORITHMS` from `src/config.py` for
+  feature selection, pitch routing and diagnostics. The combined method adds
+  energy, timbre and pitch before the periodic fit using the existing weights;
+  zero-feature ablations must reproduce the corresponding simpler method.
 - `src/main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
   writes shared root `tmp.svg`. Parent directories must exist.
 - Comparisons require a new explicit output directory and render/validate all
-  inputs before writing any files. Four-method comparison works from WAVs alone.
+  inputs before writing any files. Five-method comparison works from WAVs alone.
   An explicit `--pitch` override requires one valid known-source sidecar per word.
 - `src/merge.py` reads all `.svg` in its input directory and scales from the
   canvas origin, not per-path bounds. Merge `METHOD/words/`, not diagnostics
@@ -109,7 +113,7 @@ checks in an isolated temporary directory, using absolute input/script paths.
 Do not run `names.sh` as a routine check. Tests use temporary directories and
 small analytic 16-bit mono/stereo fixtures; maintain exact feature assertions,
 explicit numerical tolerances, finite/positive/closed/bounded geometry and
-join/seam tangent checks. Exercise both baseline fits and all four methods.
+join/seam tangent checks. Exercise both baseline fits and all five methods.
 Test size invariance, zero-feature ablations, pitch errors and trim alignment,
 collision-safe names, shared-diameter overlays and PNG failure behavior.
 

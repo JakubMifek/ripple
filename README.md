@@ -31,7 +31,7 @@ requirements is sufficient: no Praat desktop application, account, model
 download or manual pitch annotation is needed. Audio processing stays local.
 
 Have a microphone? Start with the [simple recording and pitch guide](docs/recording-guide.md):
-record/export a WAV in Audacity, then compare all four methods automatically.
+record/export a WAV in Audacity, then compare all five methods automatically.
 
 ## One recording
 
@@ -39,6 +39,7 @@ record/export a WAV in Audacity, then compare all four methods automatically.
 mkdir -p artwork
 python3 src/main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
 python3 src/main.py samples/HelloWorld.wav artwork/pitch.svg --algorithm energy-pitch
+python3 src/main.py samples/HelloWorld.wav artwork/combined.svg --algorithm energy-timbre-pitch
 python3 src/main.py samples/HelloWorld.wav artwork/baseline.svg \
   --algorithm baseline --smoothness 0 --poly-degree 4 --circle
 ```
@@ -55,8 +56,9 @@ Empty, silent, DC-only, truncated and insufficient inputs fail explicitly.
 | `energy` | Short-time RMS, power-law dynamic-range compression, normalized utterance time |
 | `energy-timbre` | Energy plus weighted **relative spectral-band energies**, energy-gated to avoid decorating silence |
 | `energy-pitch` | Energy plus **automatically estimated pitch**, or supplied known ground truth: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
+| `energy-timbre-pitch` | Energy plus **both relative timbre and pitch**, combined before the shared periodic fit using the existing feature weights |
 
-`energy-pitch` estimates pitch directly from the WAV using Praat autocorrelation.
+Both pitch-based methods estimate pitch directly from the WAV using Praat autocorrelation.
 Estimates are not ground truth and can contain octave/voicing errors. CLI output,
 SVG provenance metadata and comparison panel labels distinguish estimated from
 known pitch. An optional `--pitch FILE.pitch.json` uses validated known-source
@@ -82,7 +84,8 @@ Parent directories must exist. Diagnostics contain the processed waveform,
 baseline envelopes or energy/band features, and the pre-periodic fitted profile.
 The baseline diagnostic profile is shown before its rendering gain.
 For `energy-pitch`, the blue diagnostic curve is pitch modulation (not raw Hz);
-the red curve is energy. Both SVGs retain pitch provenance and estimator versions.
+the red curve is energy. For `energy-timbre-pitch`, red is energy, blue is timbre,
+and green is pitch modulation. Both SVGs retain pitch provenance and estimator versions.
 
 ## Configuration and artistic controls
 
@@ -143,10 +146,16 @@ windows; bands use Hann-windowed FFT power, normalized by total band power.
 Edges must cover the WAV Nyquist frequency; frequencies above Nyquist simply
 have no power. Positive/negative band weights encode an explicit artistic
 choice, not a learned identity model. Pitch reference/octave scale are global,
-not normalized per word. Zero secondary weight produces energy-only geometry
-(pitch still must be valid if its algorithm is selected). See the TOML for
+not normalized per word. Zeroing all active secondary weights produces energy-only
+geometry (pitch still must be valid if its algorithm is selected). See the TOML for
 all values. Style overrides include `--max-width`, `--height`, `--color`,
 `--stroke-width`, `--circle`; preprocessing and feature weights use TOML.
+
+`energy-timbre-pitch` adds the same energy, timbre and pitch contributions used
+by the simpler methods before Fourier fitting and bounding; it does not merge
+their rendered curves. It uses `energy_weight`, `timbre_weight` and `pitch_weight`
+without additional scaling. Zero timbre weight matches `energy-pitch`; zero
+pitch weight matches `energy-timbre`; zeroing both matches `energy`.
 
 `[pitch_estimation]` controls the automatic search range (`floor_hz = 60.0`,
 `ceiling_hz = 600.0`), time step (`hop_ms = 10.0`) and Praat voicing threshold
@@ -161,14 +170,14 @@ analysis error fails explicitly, even with zero pitch weight.
 ### Hello World example
 
 The [Hello World comparison](output_samples/hello-world-comparison/comparison.svg)
-shows the same recording with baseline, energy, energy-timbre, and energy-pitch,
-left to right. All four use the same nominal diameter and center within their panels.
+shows baseline, energy, energy-timbre, energy-pitch, and energy-timbre-pitch,
+left to right. All five use the same nominal diameter and center within their panels.
 The light-gray reference circle shows that nominal radius; the black curve
 shows the recording's inward and outward deviations.
-The fourth panel uses automatic Praat pitch estimation and is labeled
-**energy-pitch (estimated)**; it does not claim known ground truth.
+The last two panels use automatic Praat pitch estimation and are labeled
+**estimated**; they do not claim known ground truth.
 
-![Hello World: baseline, energy, energy-timbre, and estimated energy-pitch](output_samples/hello-world-comparison/comparison.svg)
+![Hello World: baseline, energy, energy-timbre, energy-pitch, and energy-timbre-pitch](output_samples/hello-world-comparison/comparison.svg)
 
 This uses the **project defaults**, including the stronger contour settings and
 gray reference circles. The optional [expressive preset](presets/expressive.toml)
@@ -192,7 +201,7 @@ Individual curves, overlays, and diagnostics are in
 ### All sample comparisons
 
 Every WAV in `samples/` has a comparison using the project defaults. Each
-preview shows baseline, energy, energy-timbre, and estimated energy-pitch,
+preview shows baseline, energy, energy-timbre, energy-pitch, and energy-timbre-pitch,
 with a faint dotted reference circle beneath the artwork. Pitch is estimated
 directly from each WAV, without sidecars.
 
@@ -206,7 +215,7 @@ directly from each WAV, without sidecars.
 | `Leontynka.wav` | [View](output_samples/leontynka-comparison/comparison.svg) |
 
 Each comparison directory also contains individual curves, overlays, and
-diagnostics for all four methods.
+diagnostics for all five methods.
 
 ### Combined names example
 
@@ -214,7 +223,7 @@ The [combined comparison](output_samples/names-comparison/comparison.svg)
 overlays **Kuba, Eliska, Baltazar, and Leontynka**, in that order. Each algorithm
 panel shares one nominal diameter and center across all four words, with a
 single dotted reference circle in the lowest layer beneath every black curve.
-The fourth panel uses automatically estimated pitch for each name.
+The last two panels use automatically estimated pitch for each name.
 
 ![Kuba, Eliska, Baltazar, and Leontynka overlaid by algorithm](output_samples/names-comparison/comparison.svg)
 
@@ -228,12 +237,13 @@ Standalone compositions:
 [baseline](output_samples/names-comparison/baseline/overlay.svg),
 [energy](output_samples/names-comparison/energy/overlay.svg),
 [energy-timbre](output_samples/names-comparison/energy-timbre/overlay.svg),
-[energy-pitch (estimated)](output_samples/names-comparison/energy-pitch/overlay.svg).
+[energy-pitch (estimated)](output_samples/names-comparison/energy-pitch/overlay.svg),
+[energy-timbre-pitch (estimated)](output_samples/names-comparison/energy-timbre-pitch/overlay.svg).
 
 ### Your recordings
 
 Use an explicit **new** output directory. A WAV is the only data input needed
-for all four methods, including automatic pitch estimation:
+for all five methods, including automatic pitch estimation:
 
 ```bash
 python3 src/compare.py samples/HelloWorld.wav samples/Kuba.wav \
@@ -254,7 +264,7 @@ All words use identical preprocessing settings and styling. Overlay overlap
 is intentional. Identical reference circles are drawn only once, behind all
 word curves, including when merging individual word SVGs with `src/merge.py`.
 Word labels are in SVG group titles; algorithm labels are in
-the preview. Default comparison includes all four methods and estimates pitch
+the preview. Default comparison includes all five methods and estimates pitch
 automatically. To override estimation, supply **one valid known-source `--pitch`
 JSON per WAV**, in the same order. Missing/invalid inputs and estimation failures
 are checked before any comparison files are written; pitch is never silently
@@ -267,7 +277,7 @@ python3 src/compare.py /tmp/ripple-known-controls/constant.wav \
   /tmp/ripple-known-controls/changing.wav /tmp/ripple-known-controls/interrupted.wav \
   --pitch /tmp/ripple-known-controls/constant.pitch.json \
   /tmp/ripple-known-controls/changing.pitch.json /tmp/ripple-known-controls/interrupted.pitch.json \
-  --output-dir artwork/four-methods --color black
+  --output-dir artwork/five-methods --color black
 ```
 
 The deterministic generator creates controlled oscillator WAVs and records
@@ -276,7 +286,7 @@ It refuses to overwrite an existing directory. These are **synthetic controls**,
 not speech examples or pitch estimates.
 
 `bash names.sh NEW_OUTPUT_DIR [OPTIONS]` compares/overlaps the four example names
-using all four methods with automatic pitch estimation; it does not overwrite
+using all five methods with automatic pitch estimation; it does not overwrite
 `output_names/`.
 
 ## Merge existing SVGs

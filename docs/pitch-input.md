@@ -19,6 +19,9 @@ from Python, locally, using Praat's accurate autocorrelation analysis on the
 shared mono, DC-removed, trimmed and gain-normalized audio. The first three
 methods do not invoke the estimator. Passing `--pitch` bypasses estimation
 and uses the strict known-source contract below instead.
+Both `energy-pitch` and `energy-timbre-pitch` support this workflow. The latter
+adds relative timbre using the existing `timbre_weight`; `pitch_weight` controls
+pitch in both methods.
 
 The `[pitch_estimation]` TOML defaults are:
 
@@ -53,11 +56,13 @@ speakers, and pitches outside the configured range can cause missed voicing
 or octave errors. These estimates are suitable for an artistic comparison,
 not proof of a speaker's identity or exact vocal frequency.
 
-CLI output and the `energy-pitch (estimated)` panel label identify estimates.
+CLI output and the `energy-pitch (estimated)` and
+`energy-timbre-pitch (estimated)` panel labels identify estimates.
 Artwork and diagnostic SVGs carry `data-pitch-source="estimated"` and
 `data-pitch-estimator` with Praat/Parselmouth versions; comparison word groups
-retain their own provenance. The blue diagnostic line shows the pitch
-modulation used by the geometry, not raw Hz. Keep the WAV and configuration
+retain their own provenance. Pitch modulation is blue in the `energy-pitch`
+diagnostic and green in `energy-timbre-pitch`, where blue shows timbre.
+These lines show modulation used by the geometry, not raw Hz. Keep the WAV and configuration
 to reproduce a result. Automatic estimates are not written as known-source JSON.
 
 ## Optional known-source JSON (version 1)
@@ -149,7 +154,7 @@ The circular seam is also artistic, not a claim that the utterance is periodic.
 
 Explicitly supplied missing/malformed/estimated-source/mismatched/incomplete
 sidecars fail, even when pitch weight is zero. No energy-only fallback is
-labeled `energy-pitch`.
+labeled as either pitch-based method.
 
 ## Generate a known-source demonstrator
 

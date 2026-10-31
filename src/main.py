@@ -3,15 +3,15 @@
 import argparse
 from pathlib import Path
 import wave
-from config import DEFAULT_CONFIG, add_render_arguments, config_from_args
+from config import DEFAULT_CONFIG, PITCH_ALGORITHMS, add_render_arguments, config_from_args
 from pitch import load_pitch
 from ripple import ripple
 
 
 def render_file(input_wav, settings, pitch_path=None):
     method = settings["render"]["algorithm"]
-    if method != "energy-pitch" and pitch_path is not None:
-        raise ValueError("--pitch is only valid for energy-pitch.")
+    if method not in PITCH_ALGORITHMS and pitch_path is not None:
+        raise ValueError("--pitch is only valid for energy-pitch or energy-timbre-pitch.")
     with wave.open(str(input_wav), "rb") as wf:
         pitch = load_pitch(pitch_path, input_wav, wf.getframerate(), wf.getnframes()) if pitch_path else None
         return ripple(wf, settings=settings, pitch_data=pitch)
@@ -22,7 +22,7 @@ def parse_args(argv=None):
     parser.add_argument("input_wav", type=Path)
     parser.add_argument("output_svg", type=Path)
     add_render_arguments(parser)
-    parser.add_argument("--pitch", type=Path, help="Known-ground-truth JSON override; energy-pitch estimates from WAV when omitted")
+    parser.add_argument("--pitch", type=Path, help="Known-ground-truth JSON override; pitch-based algorithms estimate from WAV when omitted")
     parser.add_argument("--diagnostic", type=Path, help="Diagnostic SVG override; default: OUTPUT_STEM.diagnostic.svg")
     return parser, parser.parse_args(argv)
 
@@ -44,7 +44,7 @@ def main(argv=None):
     except (ValueError, OSError, wave.Error) as error:
         parser.exit(2, f"Ripple error: {error}\n")
     print(f"Artwork: {args.output_svg}\nDiagnostic: {diagnostic}")
-    if settings["render"]["algorithm"] == "energy-pitch":
+    if settings["render"]["algorithm"] in PITCH_ALGORITHMS:
         print("Pitch: supplied known-source sidecar." if args.pitch else "Pitch: estimated automatically with Praat.")
 
 

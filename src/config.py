@@ -6,7 +6,9 @@ import math
 from pathlib import Path
 import tomllib
 
-ALGORITHMS = ("baseline", "energy", "energy-timbre", "energy-pitch")
+ALGORITHMS = ("baseline", "energy", "energy-timbre", "energy-pitch", "energy-timbre-pitch")
+TIMBRE_ALGORITHMS = ("energy-timbre", "energy-timbre-pitch")
+PITCH_ALGORITHMS = ("energy-pitch", "energy-timbre-pitch")
 DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "ripple.toml"
 SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",

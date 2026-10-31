@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import wave
 import xml.etree.ElementTree as ET
-from config import ALGORITHMS, add_render_arguments, config_from_args
+from config import ALGORITHMS, PITCH_ALGORITHMS, add_render_arguments, config_from_args
 from main import render_file
 from utils import SVG_NS, reference_first
 
@@ -78,11 +78,11 @@ def main(argv=None):
             raise ValueError("Comparison algorithms must not be repeated.")
         if args.output_dir.exists():
             raise ValueError("Comparison output directory must not already exist.")
-        needs_pitch = "energy-pitch" in args.algorithms
+        needs_pitch = any(method in PITCH_ALGORITHMS for method in args.algorithms)
         if needs_pitch and args.pitch is not None and len(args.pitch) != len(args.inputs):
             raise ValueError("When --pitch is supplied, provide one known-source sidecar per input WAV.")
         if not needs_pitch and args.pitch is not None:
-            raise ValueError("--pitch requires energy-pitch in --algorithms.")
+            raise ValueError("--pitch requires energy-pitch or energy-timbre-pitch in --algorithms.")
         base = config_from_args(args)
         labels = [p.stem for p in args.inputs]
         names = [word_name(i, p) for i, p in enumerate(args.inputs, 1)]
@@ -93,7 +93,7 @@ def main(argv=None):
             settings["render"]["algorithm"] = method
             documents = []
             for i, (input_path, name) in enumerate(zip(args.inputs, names)):
-                pitch_path = args.pitch[i] if args.pitch is not None and method == "energy-pitch" else None
+                pitch_path = args.pitch[i] if args.pitch is not None and method in PITCH_ALGORITHMS else None
                 diagnostic, circular = render_file(input_path, settings, pitch_path)
                 outputs[Path(method) / "words" / f"{name}.svg"] = circular
                 outputs[Path(method) / "diagnostics" / f"{name}.svg"] = diagnostic

@@ -2,7 +2,7 @@
 
 **Use Audacity to record your microphone.** It is free and available for
 Windows, macOS, and Linux. Your recording can be used immediately with Ripple's
-four methods, including energy-pitch.
+five methods, including energy-pitch and energy-timbre-pitch.
 
 **You only need to provide the WAV. Ripple now estimates pitch automatically
 using Praat through Python.** Installing the repository requirements installs
@@ -12,7 +12,7 @@ The WAV sample rate (such as 48000 Hz) is not your voice's pitch.
 
 | What you want | What to use |
 |---|---|
-| A personal curve from someone saying a name | Microphone + Audacity; compare all four methods automatically |
+| A personal curve from someone saying a name | Microphone + Audacity; compare all five methods automatically |
 | A controlled test with exact source frequencies instead of estimates | Ripple's built-in controlled-sound generator |
 
 ## 1. Record a name with your microphone
@@ -68,8 +68,9 @@ python3 src/compare.py recordings/my-name-take-01.wav \
 ```
 
 Open `artwork/my-name-comparison/comparison.svg` in a browser. It shows the
-four curves with faint dotted gray reference circles. The pitch panel is
-labeled **energy-pitch (estimated)**. The output directory must be new;
+five curves with faint dotted gray reference circles. The pitch-based panels
+are labeled **energy-pitch (estimated)** and **energy-timbre-pitch (estimated)**.
+The output directory must be new;
 choose another name for another run. Analysis stays on your computer.
 
 To overlay several names, put their WAV paths after `src/compare.py`, before
@@ -82,6 +83,9 @@ mkdir -p artwork
 python3 src/main.py recordings/my-name-take-01.wav artwork/my-name.svg \
   --algorithm energy-pitch
 ```
+
+Use `--algorithm energy-timbre-pitch` instead to combine energy, voice timbre
+and estimated pitch in one curve.
 
 **For your own voice recordings, you only need to prepare the WAV files.
 You do not need to establish the pitch yourself.**
@@ -108,7 +112,7 @@ generator writes the exact frequency controls used to produce each WAV,
 their sample timing, and the WAV's hash into its JSON. You do not need to
 write JSON yourself. The output directory must not already exist.
 
-Compare all four methods:
+Compare all five methods:
 
 ```bash
 python3 src/compare.py artwork/known-pitch-audio/changing.wav \
@@ -116,7 +120,7 @@ python3 src/compare.py artwork/known-pitch-audio/changing.wav \
   --output-dir artwork/known-pitch-comparison
 ```
 
-Without `--algorithms`, comparison includes all four methods. Open
+Without `--algorithms`, comparison includes all five methods. Open
 `artwork/known-pitch-comparison/comparison.svg` to see them. Keep each WAV and
 its JSON together. Listening in Audacity is fine, but editing or re-exporting
 the WAV invalidates the supplied file hash and may invalidate timing.

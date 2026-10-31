@@ -1,6 +1,7 @@
 """Interpretable normalized-time RMS, relative bands and aligned-pitch features."""
 
 import numpy as np
+from config import PITCH_ALGORITHMS, TIMBRE_ALGORITHMS
 
 
 def frame_features(audio, settings, pitch=None):
@@ -55,10 +56,10 @@ def feature_profile(features, algorithm, settings, count=2048):
     time = np.arange(count) / count
     energy = np.interp(time, features["time"], features["energy"])
     profile = settings["energy_weight"] * (energy - energy.mean())
-    if algorithm == "energy-timbre":
+    if algorithm in TIMBRE_ALGORITHMS:
         secondary = np.interp(time, features["time"], features["timbre"])
         profile += settings["timbre_weight"] * secondary
-    elif algorithm == "energy-pitch":
+    if algorithm in PITCH_ALGORITHMS:
         # Interpolate modulation, not acoustic Hz; unvoiced source values remain zero.
         secondary = np.interp(time, features["pitch_time"], features["pitch"])
         profile += settings["pitch_weight"] * secondary

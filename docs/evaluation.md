@@ -14,8 +14,8 @@ so comparisons can be repeated.
    speaker, the same name by several speakers, and different names by the
    same speaker. Keep microphone/distance and recording conditions consistent;
    include a separate varied-condition set. Preserve original WAVs.
-2. Compare all four methods from the WAVs; `energy-pitch` estimates automatically
-   and is labeled accordingly. Record estimator versions and `[pitch_estimation]`
+2. Compare all five methods from the WAVs; both pitch-based methods estimate
+   automatically and are labeled accordingly. Record estimator versions and `[pitch_estimation]`
    settings, and note audible/visible voicing or octave errors. Never present
    these estimates as ground truth. Use generated known controls with explicit
    `--pitch` sidecars for controlled accuracy experiments, labeled as synthetic.
@@ -41,7 +41,10 @@ to resist polarity inversion. Synthetic tests validate numerical contracts,
 not uniqueness, real-world identity, emotional value or beauty.
 
 For feature ablations, use TOML overrides for `timbre_weight = 0` or
-`pitch_weight = 0`: secondary-zero geometry must match energy. Vary absolute
+`pitch_weight = 0`: a single-secondary method must then match energy. For
+`energy-timbre-pitch`, disabling timbre must match `energy-pitch`, disabling
+pitch must match `energy-timbre`, and disabling both must match energy.
+Pitch-based methods still require valid pitch when its weight is zero. Vary absolute
 known oscillator pitch separately from inflection controls and note that
 changing a real sound's pitch can also change energy/band features. Do not
 attribute every geometric change to just one feature without controlling
