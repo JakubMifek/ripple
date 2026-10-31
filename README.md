@@ -147,8 +147,8 @@ This uses the explicit [expressive preset](presets/expressive.toml), not the
 subtle project defaults. It reduces high-harmonic smoothing and increases
 deformation and feature weights, without normalizing each curve to fill its
 radial range. The same preset can be used for other recordings; it does not
-guarantee visible differences for every input. Baseline uses the default fixed
-16x display gain so its signed-midpoint variation is visible without per-word
+guarantee visible differences for every input. Baseline uses this preset's fixed
+19.2x display gain so its signed-midpoint variation is visible without per-word
 min-max normalization.
 
 To reproduce it, use a new output directory:
