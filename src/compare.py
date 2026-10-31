@@ -19,15 +19,21 @@ def word_name(index, path):
 
 
 def overlay(documents, labels, method):
-    root = ET.fromstring(documents[0])
-    for child in list(root):
-        root.remove(child)
+    parsed = [ET.fromstring(document) for document in documents]
+    root = ET.Element(parsed[0].tag, parsed[0].attrib)
+    metadata = [{k: v for k, v in document.attrib.items() if k.startswith("data-pitch-")}
+                for document in parsed]
+    for key in metadata[0]:
+        if any(values.get(key) != metadata[0][key] for values in metadata):
+            root.attrib.pop(key)
+    if len({values.get("data-pitch-source") for values in metadata}) > 1:
+        root.set("data-pitch-source", "mixed")
     root.set("data-algorithm", method)
-    for document, label in zip(documents, labels):
-        group = ET.SubElement(root, f"{{{SVG_NS}}}g", {"data-word": label})
+    for document, label, values in zip(parsed, labels, metadata):
+        group = ET.SubElement(root, f"{{{SVG_NS}}}g", {"data-word": label, **values})
         title = ET.SubElement(group, f"{{{SVG_NS}}}title")
         title.text = label
-        for child in ET.fromstring(document):
+        for child in document:
             if child.get("data-role") == "reference-circle":
                 root.append(child)
             else:
@@ -42,12 +48,18 @@ def comparison_preview(overlays, side):
     root = ET.Element(f"{{{SVG_NS}}}svg", width=str(width), height=str(height),
                       viewBox=f"0 0 {width} {height}")
     for i, (method, document) in enumerate(overlays.items()):
+        overlay_root = ET.fromstring(document)
         group = ET.SubElement(root, f"{{{SVG_NS}}}g", transform=f"translate({i * side},0)")
         text = ET.SubElement(group, f"{{{SVG_NS}}}text", x=str(side / 2), y=str(label_height * 0.7),
                              attrib={"text-anchor": "middle", "font-size": str(label_height * 0.5)})
         text.text = method
+        source = overlay_root.get("data-pitch-source")
+        if source is not None:
+            label = {"estimated": "estimated", "mixed": "mixed sources"}.get(source, "known")
+            text.text += f" ({label})"
         art = ET.SubElement(group, f"{{{SVG_NS}}}g", transform=f"translate(0,{label_height})")
-        art.extend(list(ET.fromstring(document)))
+        art.attrib.update({k: v for k, v in overlay_root.attrib.items() if k.startswith("data-pitch-")})
+        art.extend(list(overlay_root))
     return ET.tostring(root, encoding="unicode")
 
 
@@ -56,7 +68,7 @@ def main(argv=None):
     parser.add_argument("inputs", nargs="+", type=Path, help="16-bit PCM WAV words, in overlay order")
     parser.add_argument("--output-dir", type=Path, required=True, help="New directory for all comparison outputs")
     parser.add_argument("--algorithms", nargs="+", choices=ALGORITHMS, default=list(ALGORITHMS))
-    parser.add_argument("--pitch", nargs="+", type=Path, help="One known-ground-truth JSON per WAV, in input order")
+    parser.add_argument("--pitch", nargs="+", type=Path, help="Optional known-ground-truth JSON per WAV; otherwise estimate pitch automatically")
     add_render_arguments(parser)
     args = parser.parse_args(argv)
     try:
@@ -67,8 +79,8 @@ def main(argv=None):
         if args.output_dir.exists():
             raise ValueError("Comparison output directory must not already exist.")
         needs_pitch = "energy-pitch" in args.algorithms
-        if needs_pitch and (args.pitch is None or len(args.pitch) != len(args.inputs)):
-            raise ValueError("Four-method/energy-pitch comparisons need one --pitch sidecar per input WAV.")
+        if needs_pitch and args.pitch is not None and len(args.pitch) != len(args.inputs):
+            raise ValueError("When --pitch is supplied, provide one known-source sidecar per input WAV.")
         if not needs_pitch and args.pitch is not None:
             raise ValueError("--pitch requires energy-pitch in --algorithms.")
         base = config_from_args(args)
@@ -81,7 +93,7 @@ def main(argv=None):
             settings["render"]["algorithm"] = method
             documents = []
             for i, (input_path, name) in enumerate(zip(args.inputs, names)):
-                pitch_path = args.pitch[i] if needs_pitch and method == "energy-pitch" else None
+                pitch_path = args.pitch[i] if args.pitch is not None and method == "energy-pitch" else None
                 diagnostic, circular = render_file(input_path, settings, pitch_path)
                 outputs[Path(method) / "words" / f"{name}.svg"] = circular
                 outputs[Path(method) / "diagnostics" / f"{name}.svg"] = diagnostic
@@ -98,6 +110,8 @@ def main(argv=None):
     except (ValueError, OSError, wave.Error) as error:
         parser.exit(2, f"Comparison error: {error}\n")
     print(f"Comparison and shared-circle overlays: {args.output_dir}")
+    if needs_pitch:
+        print("Pitch: supplied known-source sidecars." if args.pitch else "Pitch: estimated automatically with Praat.")
 
 
 if __name__ == "__main__":

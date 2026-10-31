@@ -59,7 +59,7 @@ def radial_path(coefficients, render):
     return " ".join(parts) + " Z"
 
 
-def circular_svg(coefficients, render):
+def circular_svg(coefficients, render, metadata=None):
     side = min(render["max_width"], render["height"])
     paths = []
     if render["circle"]:
@@ -68,6 +68,8 @@ def circular_svg(coefficients, render):
                       "data-role": "reference-circle"})
     paths.append({"d": radial_path(coefficients, render), "stroke": render["color"],
                   "stroke_width": render["stroke_width"]})
-    return create_waveform_svg(side, side, paths, {
+    details = {
         "algorithm": render["algorithm"], "nominal-diameter": 2 * render["nominal_radius"] * side,
-        "center": f"{side / 2},{side / 2}"})
+        "center": f"{side / 2},{side / 2}"}
+    details.update(metadata or {})
+    return create_waveform_svg(side, side, paths, details)

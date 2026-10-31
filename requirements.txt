@@ -2,3 +2,4 @@
 numpy
 svgpathtools
 cairosvg
+praat-parselmouth>=0.4.7,<0.5

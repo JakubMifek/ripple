@@ -15,12 +15,13 @@ SCHEMA = {
     "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight",
                  "pitch_weight", "bands_hz", "band_weights", "pitch_reference_hz",
                  "pitch_octaves", "pitch_absolute_weight", "pitch_inflection_weight"},
+    "pitch_estimation": {"floor_hz", "ceiling_hz", "hop_ms", "voicing_threshold"},
 }
 
 
 def validate_keys(settings):
     if set(settings) != {"version", *SCHEMA}:
-        raise ValueError("Configuration must contain version and only render, preprocess, features tables.")
+        raise ValueError(f"Configuration must contain version and only these tables: {', '.join(SCHEMA)}.")
     if type(settings["version"]) is not int or settings["version"] != 1:
         raise ValueError("Configuration version must be 1.")
     for section, keys in SCHEMA.items():
@@ -103,6 +104,13 @@ def validate_config(settings):
         number(f, key, 0, 4)
     number(f, "pitch_reference_hz", 1, 20000)
     number(f, "pitch_octaves", 0.1, 8)
+    estimation = settings["pitch_estimation"]
+    number(estimation, "floor_hz", 20, 2000)
+    number(estimation, "ceiling_hz", 20, 10000)
+    if estimation["ceiling_hz"] <= estimation["floor_hz"]:
+        raise ValueError("pitch_estimation.ceiling_hz must exceed floor_hz.")
+    number(estimation, "hop_ms", 1, 100)
+    number(estimation, "voicing_threshold", 0, 1)
     edges, weights = f["bands_hz"], f["band_weights"]
     if not isinstance(edges, list) or not 2 <= len(edges) <= 33:
         raise ValueError("bands_hz must contain 2 to 33 increasing edges.")

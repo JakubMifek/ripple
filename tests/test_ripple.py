@@ -22,13 +22,14 @@ SRC = REPO / "src"
 sys.path.insert(0, str(SRC))
 
 from audio import preprocess
+from compare import comparison_preview, overlay
 from config import ALGORITHMS, DEFAULT_CONFIG, config_from_args, load_config, validate_config
 from features import frame_features, feature_profile
 from generate_fixtures import generate
 from geometry import circular_svg, evaluate_profile, periodic_coefficients
 from main import main as main_command, parse_args, render_file
 from merge import export_png
-from pitch import Pitch, load_pitch, wav_hash
+from pitch import Pitch, estimate_pitch, load_pitch, wav_hash
 from ripple import create_svg_path
 from utils import SVG_NS, smooth_waveform
 
@@ -110,6 +111,8 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(defaults["render"]["baseline_gain"], 19.2)
         self.assertEqual(defaults["features"]["energy_weight"], 3.96)
         self.assertEqual(defaults["features"]["timbre_weight"], 2.64)
+        self.assertEqual(defaults["pitch_estimation"], {
+            "floor_hz": 60.0, "ceiling_hz": 600.0, "hop_ms": 10.0, "voicing_threshold": 0.45})
         self.assertEqual(defaults, load_config(REPO / "presets/expressive.toml"))
         config = self.work / "custom.toml"
         config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\nbaseline_gain = 4\n')
@@ -136,6 +139,12 @@ class ConfigurationTests(FixtureCase):
             "version = 1\n[render]\nbaseline_gain = -1",
             "version = 1\n[render]\nbaseline_gain = 65",
             "version = 1\n[render]\nbaseline_gain = nan",
+            "version = 1\n[pitch_estimation]\nfloor_hz = 0",
+            "version = 1\n[pitch_estimation]\nfloor_hz = 600",
+            "version = 1\n[pitch_estimation]\nceiling_hz = 50",
+            "version = 1\n[pitch_estimation]\nhop_ms = 0",
+            "version = 1\n[pitch_estimation]\nvoicing_threshold = 1.1",
+            "version = 1\n[pitch_estimation]\nvoicing_threshold = nan",
         ]
         config = self.work / "bad.toml"
         for text in cases:
@@ -337,6 +346,7 @@ class PitchTests(FixtureCase):
 
     def test_valid_contract_and_alignment(self):
         pitch = self.load()
+        self.assertEqual(pitch.metadata, {"pitch-source": "known-generating-controls"})
         np.testing.assert_array_equal(pitch.values([0, 1999, 2000, 3199, 3200]), [220, 220, 0, 0, 330])
         self.settings["preprocess"]["trim_padding_ms"] = 0
         audio = self.audio()
@@ -386,6 +396,161 @@ class PitchTests(FixtureCase):
         generate(second)
         for path in self.fixtures.iterdir():
             self.assertEqual(path.read_bytes(), (second / path.name).read_bytes())
+
+
+class PitchEstimationTests(FixtureCase):
+    def estimate(self, path=None):
+        return estimate_pitch(self.audio(path), self.settings["pitch_estimation"])
+
+    def test_constant_pitch_accuracy_across_rates_and_registers(self):
+        for rate in (8000, 16000, 44100, 48000):
+            for expected in (110, 220, 440):
+                with self.subTest(rate=rate, hz=expected):
+                    write_wav(self.wav, signal(rate=rate, hz=expected), rate=rate)
+                    pitch = self.estimate()
+                    self.assertEqual(pitch.source, "estimated")
+                    self.assertIn("Praat", pitch.estimator)
+                    self.assertIn("Parselmouth", pitch.estimator)
+                    self.assertEqual(pitch.intervals[0][0], 0)
+                    self.assertEqual(pitch.intervals[-1][1], round(0.6 * rate))
+                    for current, following in zip(pitch.intervals, pitch.intervals[1:]):
+                        self.assertEqual(current[1], following[0])
+                    interior = pitch.values(np.arange(round(0.1 * rate), round(0.5 * rate)))
+                    np.testing.assert_allclose(interior, expected, atol=0.5, rtol=0)
+
+    def test_inflection_and_trimmed_original_frame_alignment(self):
+        known = self.work / "known"
+        generate(known)
+        changing = self.estimate(known / "changing.wav")
+        for start, expected in ((0, 165), (0.25, 220), (0.5, 330)):
+            indices = np.arange(round((start + 0.08) * 8000), round((start + 0.17) * 8000))
+            np.testing.assert_allclose(changing.values(indices), expected, atol=1, rtol=0)
+        with wave.open(str(known / "interrupted.wav"), "rb") as wav:
+            samples = np.frombuffer(wav.readframes(wav.getnframes()), dtype="<i2") / 32767
+        write_wav(self.wav, np.pad(samples, (1600, 2400)))
+        self.settings["preprocess"]["trim_padding_ms"] = 0
+        audio = self.audio()
+        self.assertGreater(audio.start, 1600)
+        pitch = self.estimate()
+        self.assertEqual(pitch.intervals[-1][1], audio.original_frames)
+        np.testing.assert_array_equal(pitch.values(np.arange(1600)), 0)
+        np.testing.assert_array_equal(pitch.values(np.arange(6800, audio.original_frames)), 0)
+        np.testing.assert_allclose(pitch.values(np.arange(2400, 2800)), 220, atol=1, rtol=0)
+        np.testing.assert_allclose(pitch.values(np.arange(5600, 6000)), 330, atol=1, rtol=0)
+        features = frame_features(audio, self.settings["features"], pitch)
+        original = np.arange(audio.start, audio.end)
+        pause = (original >= 4080) & (original < 4320)
+        np.testing.assert_array_equal(features["hz"][pause], 0)
+        np.testing.assert_array_equal(features["pitch"][pause], 0)
+        np.testing.assert_array_equal(features["hz"], pitch.values(original))
+
+    def test_polarity_gain_stereo_and_padding(self):
+        interior = np.arange(800, 4000)
+        reference = self.estimate().values(interior)
+        for multiplier, channels, padding in ((-1, 1, 0), (0.5, 2, 0), (1, 1, 1600)):
+            write_wav(self.wav, np.pad(signal() * multiplier, (padding, padding)), channels=channels)
+            actual = self.estimate().values(interior + padding)
+            np.testing.assert_allclose(actual, reference, atol=0.1, rtol=0)
+
+    def test_geometry_metadata_ablation_and_size_independence(self):
+        write_wav(self.wav, signal(hz=110))
+        self.settings["render"]["algorithm"] = "energy-pitch"
+        result = render_file(self.wav, self.settings)
+        self.assertEqual(result, render_file(self.wav, self.settings))
+        for document in result:
+            root = ET.fromstring(document)
+            self.assertEqual(root.get("data-pitch-source"), "estimated")
+            self.assertIn("Praat", root.get("data-pitch-estimator"))
+        curve = paths(result[1])[0]
+        self.assertTrue(curve.isclosed())
+        self.assertTrue(curve.iscontinuous())
+        for current, following in zip(curve, list(curve)[1:] + [curve[0]]):
+            self.assertAlmostEqual(abs(current.derivative(1) - following.derivative(0)), 0, delta=1e-8)
+        points = sample_path(result[1])
+        self.assertTrue(np.isfinite(points).all())
+        radii = np.abs(points - (128 + 128j))
+        self.assertGreater(radii.min(), 102.4 * 0.82 - 1e-6)
+        self.assertLess(radii.max(), 102.4 * 1.18 + 1e-6)
+        bigger = copy.deepcopy(self.settings)
+        bigger["render"].update(max_width=1024, height=512)
+        np.testing.assert_allclose(sample_path(render_file(self.wav, bigger)[1]) / 2, points, atol=1e-9)
+        self.settings["features"]["pitch_weight"] = 0
+        without_pitch = sample_path(render_file(self.wav, self.settings)[1])
+        self.assertGreater(float(np.max(np.abs(points - without_pitch))), 0.1)
+        self.settings["render"]["algorithm"] = "energy"
+        np.testing.assert_array_equal(without_pitch, sample_path(render_file(self.wav, self.settings)[1]))
+
+    def test_short_unvoiced_and_invalid_rate_fail_explicitly(self):
+        write_wav(self.wav, signal(duration=0.02))
+        with self.assertRaisesRegex(ValueError, "too short for pitch estimation"):
+            self.estimate()
+        write_wav(self.wav, np.random.default_rng(42).normal(0, 0.1, 6400))
+        with self.assertRaisesRegex(ValueError, "No voiced pitch"):
+            self.estimate()
+        self.settings["render"]["algorithm"] = "energy-pitch"
+        self.settings["features"]["pitch_weight"] = 0
+        with self.assertRaisesRegex(ValueError, "No voiced pitch"):
+            render_file(self.wav, self.settings)
+        self.settings["pitch_estimation"]["ceiling_hz"] = 5000
+        with self.assertRaisesRegex(ValueError, "Nyquist"):
+            self.estimate()
+
+    def test_missing_failed_and_invalid_estimator(self):
+        import parselmouth
+        with mock.patch.dict(sys.modules, {"parselmouth": None}):
+            with self.assertRaisesRegex(ValueError, "requires praat-parselmouth"):
+                self.estimate()
+            for method in ALGORITHMS[:3]:
+                self.settings["render"]["algorithm"] = method
+                render_file(self.wav, self.settings)
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                with self.assertRaises(SystemExit) as error:
+                    main_command([str(self.wav), str(self.work / "missing.svg"), "--algorithm", "energy-pitch"])
+            self.assertEqual(error.exception.code, 2)
+            self.assertIn("requires praat-parselmouth", stderr.getvalue())
+            self.assertFalse((self.work / "missing.svg").exists())
+        with mock.patch("parselmouth.Sound", side_effect=parselmouth.PraatError("test failure")):
+            with self.assertRaisesRegex(ValueError, "Praat pitch estimation failed: test failure"):
+                self.estimate()
+        for frequencies in ([220, float("nan")], [220, -1], [220, 5000], [0, 0]):
+            track = mock.Mock()
+            track.selected_array = {"frequency": np.array(frequencies)}
+            track.xs.return_value = np.array([0.1, 0.11])
+            with mock.patch("parselmouth.Sound") as sound:
+                sound.return_value.to_pitch_ac.return_value = track
+                with self.assertRaisesRegex(ValueError, "invalid pitch track|No voiced pitch"):
+                    self.estimate()
+
+    def test_known_sidecars_bypass_estimation_and_fail_without_fallback(self):
+        known = self.work / "known"
+        generate(known)
+        wav, sidecar = known / "changing.wav", known / "changing.pitch.json"
+        self.settings["render"]["algorithm"] = "energy-pitch"
+        with mock.patch("ripple.estimate_pitch", side_effect=AssertionError("Must not estimate supplied pitch")):
+            with mock.patch.dict(sys.modules, {"parselmouth": None}):
+                diagnostic, circular = render_file(wav, self.settings, sidecar)
+            for document in (diagnostic, circular):
+                root = ET.fromstring(document)
+                self.assertEqual(root.get("data-pitch-source"), "known-generating-controls")
+                self.assertIsNone(root.get("data-pitch-estimator"))
+            sidecar.write_text("{}")
+            with self.assertRaises(ValueError):
+                render_file(wav, self.settings, sidecar)
+
+    def test_overlay_retains_each_words_pitch_provenance(self):
+        self.settings["render"]["algorithm"] = "energy-pitch"
+        estimated = render_file(self.wav, self.settings)[1]
+        known = circular_svg(np.zeros(1, dtype=complex), self.settings["render"],
+                             {"pitch-source": "known-generating-controls"})
+        combined = overlay([known, estimated], ["known", "estimated"], "energy-pitch")
+        root = ET.fromstring(combined)
+        self.assertEqual(root.get("data-pitch-source"), "mixed")
+        self.assertIsNone(root.get("data-pitch-estimator"))
+        groups = root.findall("s:g", NS)
+        self.assertEqual([g.get("data-pitch-source") for g in groups], ["known-generating-controls", "estimated"])
+        self.assertIn("Praat", groups[1].get("data-pitch-estimator"))
+        preview = ET.fromstring(comparison_preview({"energy-pitch": combined}, 256))
+        self.assertEqual(preview.find(".//s:text", NS).text, "energy-pitch (mixed sources)")
 
 
 class GeometryTests(FixtureCase):
@@ -552,7 +717,9 @@ class InterfaceTests(FixtureCase):
             self.assertTrue((self.work / f"{method}.diagnostic.svg").is_file())
             self.assertEqual(ET.parse(self.work / f"{method}.svg").getroot().get("data-algorithm"), method)
         self.assertFalse((self.work / "tmp.svg").exists())
-        self.run_cli("main.py", wav, "x.svg", "--algorithm", "energy-pitch", ok=False)
+        result = self.run_cli("main.py", wav, "estimated.svg", "--algorithm", "energy-pitch")
+        self.assertIn("estimated automatically with Praat", result.stdout)
+        self.assertEqual(ET.parse(self.work / "estimated.svg").getroot().get("data-pitch-source"), "estimated")
         self.assertFalse((self.work / "x.svg").exists())
         self.run_cli("main.py", wav, "x.svg", "--pitch", pitch, ok=False)
         self.run_cli("main.py", wav, wav, ok=False)
@@ -589,7 +756,8 @@ class InterfaceTests(FixtureCase):
         self.run_cli("compare.py", *inputs, "--output-dir", output, "--pitch", *pitches,
                      "--smoothness", 0, "--max-width", 512, "--height", 256, "--stroke-width", 1, "--no-circle")
         preview = ET.parse(output / "comparison.svg").getroot()
-        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)], list(ALGORITHMS))
+        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)],
+                         [*ALGORITHMS[:3], "energy-pitch (known)"])
         self.assertEqual(float(preview.get("width")), 1024)
         for method in ALGORITHMS:
             overlay = ET.parse(output / method / "overlay.svg").getroot()
@@ -599,7 +767,7 @@ class InterfaceTests(FixtureCase):
             self.assertTrue(all("transform" not in g.attrib for g in overlay.findall("s:g", NS)))
             self.assertEqual(len(overlay.findall(".//s:path", NS)), 2)
             self.assertEqual(len(list((output / method / "words").glob("*.svg"))), 2)
-        self.run_cli("compare.py", *inputs, "--output-dir", "missing", ok=False)
+        self.run_cli("compare.py", *inputs, "--output-dir", "missing", "--pitch", pitches[0], ok=False)
         self.assertFalse((self.work / "missing").exists())
         bad = self.work / "bad.json"
         bad.write_text("{}")
@@ -633,7 +801,8 @@ class InterfaceTests(FixtureCase):
                      "--smoothness", 0, "--max-width", 512, "--height", 256,
                      "--stroke-width", 3, "--deformation", 0.18)
         preview = ET.parse(output / "comparison.svg").getroot()
-        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)], list(ALGORITHMS))
+        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)],
+                         [*ALGORITHMS[:3], "energy-pitch (known)"])
         self.assertEqual(len(preview.findall("s:g", NS)), len(ALGORITHMS))
         for method, panel in zip(ALGORITHMS, preview.findall("s:g", NS)):
             with self.subTest(method=method):
@@ -657,6 +826,33 @@ class InterfaceTests(FixtureCase):
                 preview_art = panel.find("s:g", NS)
                 self.assertEqual([ET.tostring(child) for child in preview_art],
                                  [ET.tostring(child) for child in overlay])
+
+    def test_wav_only_four_method_comparison_and_pitch_failures(self):
+        output = self.work / "automatic"
+        result = self.run_cli("compare.py", self.wav, REPO / "samples/HelloWorld.wav",
+                             "--output-dir", output, "--smoothness", 0,
+                             "--max-width", 512, "--height", 256, "--stroke-width", 1)
+        self.assertIn("estimated automatically with Praat", result.stdout)
+        preview = ET.parse(output / "comparison.svg").getroot()
+        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)],
+                         [*ALGORITHMS[:3], "energy-pitch (estimated)"])
+        art = preview.findall("s:g", NS)[-1].find("s:g", NS)
+        self.assertEqual(art.get("data-pitch-source"), "estimated")
+        self.assert_reference_circle(art[0])
+        for method in ALGORITHMS:
+            self.assertEqual(len(list((output / method / "words").glob("*.svg"))), 2)
+        for word in (output / "energy-pitch/words").glob("*.svg"):
+            self.assertEqual(ET.parse(word).getroot().get("data-pitch-source"), "estimated")
+        noise = self.work / "noise.wav"
+        write_wav(noise, np.random.default_rng(42).normal(0, 0.1, 6400))
+        result = self.run_cli("main.py", noise, "failure.svg", "--algorithm", "energy-pitch", ok=False)
+        self.assertIn("No voiced pitch", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse((self.work / "failure.svg").exists())
+        self.assertFalse((self.work / "failure.diagnostic.svg").exists())
+        self.run_cli("compare.py", self.wav, noise, "--algorithms", "energy", "energy-pitch",
+                     "--output-dir", "failure", ok=False)
+        self.assertFalse((self.work / "failure").exists())
 
     def test_merge_reference_is_once_below_artwork_and_keeps_its_style(self):
         inputs = self.work / "merge-inputs"

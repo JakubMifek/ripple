@@ -8,7 +8,7 @@ Beauty, recognizability and tattoo suitability require human judgment.
 
 ## Setup
 
-Python **3.11+** (standard-library TOML), NumPy and svgpathtools:
+Python **3.11+** (standard-library TOML), NumPy, svgpathtools and Praat-Parselmouth:
 
 Python source lives in `src/`. Run the following commands from the repository
 root; configuration, samples, tests, and the `names.sh` helper remain there.
@@ -26,15 +26,19 @@ native Cairo. Missing Python/native Cairo produces an explicit warning when
 PNG export is implicit. An explicit `--png` request fails if it cannot render.
 SVG generation does not need Cairo. Use `--no-png` for SVG-only merging.
 
+`praat-parselmouth` embeds Praat's pitch analysis in Python. Installing the
+requirements is sufficient: no Praat desktop application, account, model
+download or manual pitch annotation is needed. Audio processing stays local.
+
 Have a microphone? Start with the [simple recording and pitch guide](docs/recording-guide.md):
-Audacity setup, the exact WAV export settings, and how to generate genuine
-known-pitch examples separately from natural speech.
+record/export a WAV in Audacity, then compare all four methods automatically.
 
 ## One recording
 
 ```bash
 mkdir -p artwork
 python3 src/main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
+python3 src/main.py samples/HelloWorld.wav artwork/pitch.svg --algorithm energy-pitch
 python3 src/main.py samples/HelloWorld.wav artwork/baseline.svg \
   --algorithm baseline --smoothness 0 --poly-degree 4 --circle
 ```
@@ -50,12 +54,14 @@ Empty, silent, DC-only, truncated and insufficient inputs fail explicitly.
 | `baseline` (default) | Cyclic median of the signed waveform, extrema and legacy recursive midpoints; Fourier or polynomial fit |
 | `energy` | Short-time RMS, power-law dynamic-range compression, normalized utterance time |
 | `energy-timbre` | Energy plus weighted **relative spectral-band energies**, energy-gated to avoid decorating silence |
-| `energy-pitch` | Energy plus **externally supplied known ground truth**: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
+| `energy-pitch` | Energy plus **automatically estimated pitch**, or supplied known ground truth: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
 
-No pitch is ever detected or estimated. Natural-speech recordings generally
-cannot supply exact ground truth; the existing speech samples demonstrate only
-the first three methods. Read the [pitch input guide](docs/pitch-input.md)
-before using `--algorithm energy-pitch --pitch FILE.pitch.json`.
+`energy-pitch` estimates pitch directly from the WAV using Praat autocorrelation.
+Estimates are not ground truth and can contain octave/voicing errors. CLI output,
+SVG provenance metadata and comparison panel labels distinguish estimated from
+known pitch. An optional `--pitch FILE.pitch.json` uses validated known-source
+data instead; an invalid supplied file fails rather than falling back to
+estimation. Read the [pitch guide](docs/pitch-input.md) for settings and limitations.
 
 The artwork is always circular. A faint light-gray (`#e0e0e0`), 1 px dotted
 nominal reference circle is enabled by default beneath the artwork; it does
@@ -75,6 +81,8 @@ or the path specified with `--diagnostic`. It no longer writes shared
 Parent directories must exist. Diagnostics contain the processed waveform,
 baseline envelopes or energy/band features, and the pre-periodic fitted profile.
 The baseline diagnostic profile is shown before its rendering gain.
+For `energy-pitch`, the blue diagnostic curve is pitch modulation (not raw Hz);
+the red curve is energy. Both SVGs retain pitch provenance and estimator versions.
 
 ## Configuration and artistic controls
 
@@ -140,6 +148,14 @@ not normalized per word. Zero secondary weight produces energy-only geometry
 all values. Style overrides include `--max-width`, `--height`, `--color`,
 `--stroke-width`, `--circle`; preprocessing and feature weights use TOML.
 
+`[pitch_estimation]` controls the automatic search range (`floor_hz = 60.0`,
+`ceiling_hz = 600.0`), time step (`hop_ms = 10.0`) and Praat voicing threshold
+(`voicing_threshold = 0.45`). These defaults need no user input for ordinary
+voice recordings. Extreme registers or difficult recordings may need adjustment.
+The accurate autocorrelation window needs at least `6 / floor_hz` seconds after
+trimming (100 ms by default). No voiced estimate, a missing dependency or an
+analysis error fails explicitly, even with zero pitch weight.
+
 ## Compare and compose multiple words
 
 ### Hello World example
@@ -149,8 +165,8 @@ shows the same recording with baseline, energy, and energy-timbre, left to right
 All three use the same nominal diameter and center within their panels.
 The light-gray reference circle shows that nominal radius; the black curve
 shows the recording's inward and outward deviations.
-Energy-pitch is omitted because this natural-speech sample has no ground-truth
-pitch sidecar.
+This committed three-method preview predates automatic pitch estimation.
+Omit `--algorithms` in the command below to make a new four-method comparison.
 
 ![Hello World: baseline, energy, and energy-timbre](output_samples/hello-world-comparison/comparison.svg)
 
@@ -178,8 +194,8 @@ Individual curves, overlays, and diagnostics are in
 
 Every WAV in `samples/` has a comparison using the project defaults. Each
 preview shows baseline, energy, and energy-timbre, with a light-gray reference
-circle. None of these files has a validated ground-truth pitch sidecar, so
-energy-pitch is not included.
+circle. These committed previews retain the original three-method comparisons;
+fresh comparisons now include estimated `energy-pitch` by default, without sidecars.
 
 | Recording | Comparison |
 |---|---|
@@ -216,13 +232,12 @@ Standalone compositions:
 
 ### Your recordings
 
-Use an explicit **new** output directory. With real recordings and no ground
-truth, explicitly select the first three methods:
+Use an explicit **new** output directory. A WAV is the only data input needed
+for all four methods, including automatic pitch estimation:
 
 ```bash
 python3 src/compare.py samples/HelloWorld.wav samples/Kuba.wav \
-  --algorithms baseline energy energy-timbre --output-dir artwork/comparison \
-  --color black --height 1024
+  --output-dir artwork/comparison --color black --height 1024
 ```
 
 Output includes:
@@ -239,10 +254,12 @@ All words use identical preprocessing settings and styling. Overlay overlap
 is intentional. Identical reference circles are drawn only once, behind all
 word curves, including when merging individual word SVGs with `src/merge.py`.
 Word labels are in SVG group titles; algorithm labels are in
-the preview. Default comparison includes all four methods and therefore
-requires **one valid `--pitch` JSON per WAV**, in the same order. Missing or
-invalid inputs are checked/rendered before any comparison files are written;
-pitch is never silently replaced by energy.
+the preview. Default comparison includes all four methods and estimates pitch
+automatically. To override estimation, supply **one valid known-source `--pitch`
+JSON per WAV**, in the same order. Missing/invalid inputs and estimation failures
+are checked before any comparison files are written; pitch is never silently
+replaced by energy. To deliberately skip pitch, select
+`--algorithms baseline energy energy-timbre`.
 
 ```bash
 python3 src/generate_fixtures.py /tmp/ripple-known-controls
@@ -259,7 +276,8 @@ It refuses to overwrite an existing directory. These are **synthetic controls**,
 not speech examples or pitch estimates.
 
 `bash names.sh NEW_OUTPUT_DIR [OPTIONS]` compares/overlaps the four example names
-using the first three methods; it no longer overwrites `output_names/`.
+using all four methods with automatic pitch estimation; it does not overwrite
+`output_names/`.
 
 ## Merge existing SVGs
 

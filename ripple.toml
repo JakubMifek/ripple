@@ -34,3 +34,9 @@ pitch_reference_hz = 220.0
 pitch_octaves = 2.0
 pitch_absolute_weight = 0.6
 pitch_inflection_weight = 0.4
+
+[pitch_estimation]
+floor_hz = 60.0
+ceiling_hz = 600.0
+hop_ms = 10.0
+voicing_threshold = 0.45

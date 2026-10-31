@@ -1,4 +1,4 @@
-"""Interpretable normalized-time RMS, relative bands and supplied-pitch features."""
+"""Interpretable normalized-time RMS, relative bands and aligned-pitch features."""
 
 import numpy as np
 
@@ -59,7 +59,7 @@ def feature_profile(features, algorithm, settings, count=2048):
         secondary = np.interp(time, features["time"], features["timbre"])
         profile += settings["timbre_weight"] * secondary
     elif algorithm == "energy-pitch":
-        # Interpolate the supplied modulation, not acoustic Hz; unvoiced source values remain zero.
+        # Interpolate modulation, not acoustic Hz; unvoiced source values remain zero.
         secondary = np.interp(time, features["pitch_time"], features["pitch"])
         profile += settings["pitch_weight"] * secondary
     return profile

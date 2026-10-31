@@ -2,18 +2,18 @@
 
 **Use Audacity to record your microphone.** It is free and available for
 Windows, macOS, and Linux. Your recording can be used immediately with Ripple's
-baseline, energy, and energy-timbre methods.
+four methods, including energy-pitch.
 
-**A microphone recording cannot supply the exact pitch data required by the
-fourth method under Ripple's current no-estimation rule.** A WAV contains the
-sound, but not a verified timeline of its fundamental frequency. A better
-microphone improves the recording; it does not create that timeline.
+**You only need to provide the WAV. Ripple now estimates pitch automatically
+using Praat through Python.** Installing the repository requirements installs
+the needed library; you do not need to operate Praat or prepare pitch JSON.
+The estimate tracks how high or low your voice is throughout the word.
 The WAV sample rate (such as 48000 Hz) is not your voice's pitch.
 
 | What you want | What to use |
 |---|---|
-| A personal curve from someone saying a name | Microphone + Audacity; compare the first three methods |
-| WAVs with valid known-pitch sidecars to try all four methods | Ripple's built-in controlled-sound generator |
+| A personal curve from someone saying a name | Microphone + Audacity; compare all four methods automatically |
+| A controlled test with exact source frequencies instead of estimates | Ripple's built-in controlled-sound generator |
 
 ## 1. Record a name with your microphone
 
@@ -64,25 +64,32 @@ root with the virtual environment active:
 
 ```bash
 python3 src/compare.py recordings/my-name-take-01.wav \
-  --algorithms baseline energy energy-timbre \
   --output-dir artwork/my-name-comparison
 ```
 
 Open `artwork/my-name-comparison/comparison.svg` in a browser. It shows the
-three curves with gray reference circles. The output directory must be new;
-choose another name for another run.
+four curves with faint dotted gray reference circles. The pitch panel is
+labeled **energy-pitch (estimated)**. The output directory must be new;
+choose another name for another run. Analysis stays on your computer.
 
 To overlay several names, put their WAV paths after `src/compare.py`, before
-`--algorithms`. The [combined-names example](../README.md#combined-names-example)
-shows the full command. Every name will use the same nominal diameter and center.
+`--output-dir`. Every name will use the same nominal diameter and center.
+
+For just the pitch-based curve:
+
+```bash
+mkdir -p artwork
+python3 src/main.py recordings/my-name-take-01.wav artwork/my-name.svg \
+  --algorithm energy-pitch
+```
 
 **For your own voice recordings, you only need to prepare the WAV files.
-Do not create pitch JSON by guessing or copying values from a tuner.**
+You do not need to establish the pitch yourself.**
 
-## 3. Generate WAVs that really have known pitch
+## 3. Optional: generate WAVs with known pitch
 
-For a valid four-method demonstration, use the included generator rather than
-recording your microphone:
+For a controlled experiment with exact generating frequencies rather than
+speech estimates, use the included generator:
 
 ```bash
 python3 src/generate_fixtures.py artwork/known-pitch-audio
@@ -114,20 +121,24 @@ Without `--algorithms`, comparison includes all four methods. Open
 its JSON together. Listening in Audacity is fine, but editing or re-exporting
 the WAV invalidates the supplied file hash and may invalidate timing.
 
-## Why not extract pitch from my recording?
+## How reliable is the estimated pitch?
 
-Programs such as Praat and musical tuners **estimate** pitch. Manual correction,
-singing an intended note, or knowing a melody does not make those values exact
-ground truth. They are excluded by the current project contract.
+Praat estimates your voice's fundamental frequency over time. Some sounds,
+such as unvoiced consonants, have no periodic pitch. Background noise, breathy
+voices or unusually low/high voices can confuse the analysis; an estimate can
+also jump to half or double the correct frequency. A good recording helps,
+but estimates are not exact ground truth.
 
-Likewise, playing a known tone through a speaker and recording it with your
-microphone is not a ready-made valid pair: the captured WAV has its own timing,
-latency, and recording-clock alignment. Use direct digital generation with
-matching source controls, not the sidecar for a different recording.
+If Ripple reports no voiced pitch or a recording that is too short, keep the
+whole naturally spoken word and try a clearer take. The default analysis needs
+at least 100 ms after trimming. It will report failure rather than pretend
+that energy-only artwork used pitch. You can deliberately compare only the
+first three methods with `--algorithms baseline energy energy-timbre`.
 
-Using the fourth method on ordinary recorded speech would require changing
-the no-estimation requirement. For the formats and accepted source information,
-see the [technical pitch-input guide](pitch-input.md).
+The known-pitch JSON format in section 3 is different: it records actual
+generating controls. Never label tuner readings, estimates or intended notes
+as exact known pitch. See the [technical pitch guide](pitch-input.md) for
+optional analysis settings and the distinction.
 
 ## Audacity references
 

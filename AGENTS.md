@@ -15,10 +15,10 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
 - `src/ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
   smoothing/extrema/recursive midpoints, diagnostic SVG. `ripple()` returns
   `(diagnostic_svg, circular_svg)` strings.
-- `src/features.py`: millisecond RMS, relative spectral bands, supplied pitch.
-- `src/pitch.py`: versioned, WAV-hash-bound known-ground-truth JSON; complete
-  original-frame coverage. **No pitch estimation, including external or
-  manually corrected speech estimates.** Read `docs/pitch-input.md`.
+- `src/features.py`: millisecond RMS, relative spectral bands, aligned pitch.
+- `src/pitch.py`: automatic local Praat-Parselmouth pitch estimation, plus
+  versioned WAV-hash-bound known-source JSON. Estimates are explicitly labeled,
+  never declared as known ground truth. Read `docs/pitch-input.md`.
 - `src/geometry.py`: bounded periodic Fourier profile, float radial geometry,
   analytic matching cubic tangents including the closed seam.
 - `src/utils.py`: cyclic float median, baseline fits, XML SVG serialization.
@@ -27,7 +27,7 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
   for each algorithm, labeled side-by-side algorithm preview.
 - `src/generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
 - `src/merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
-- `names.sh`: first-three-method comparison of four example names into a new
+- `names.sh`: four-method comparison of four example names into a new
   explicit output directory; no parallel/shared-diagnostic race.
 - `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
 
@@ -47,7 +47,8 @@ python3 -m unittest discover -s tests -v
 ```
 
 No formatter/linter/packaging is configured. Do not invent existing tools.
-Dependencies are NumPy, svgpathtools, CairoSVG. Missing CairoSVG **or native
+Dependencies are NumPy, svgpathtools, CairoSVG and praat-parselmouth (embedded
+Praat; no desktop application required). Missing CairoSVG **or native
 Cairo** warns for implicit PNG export but fails for explicit `--png`.
 `--no-png` is SVG-only. Never count absent PNG as a successful rendering check.
 Tests exercise the host's available/unavailable branch and mock missing and
@@ -74,15 +75,20 @@ failed renderers; native PNG dimensions are checked when available.
   Deduplicate identical references below all word curves in comparisons and
   legacy merges; artwork stroke settings must not change reference thickness.
   Use floating geometry and matching seam tangents.
-- `energy-pitch` always requires validated known-source input, even at zero
-  pitch weight. No invented Hz, no silent energy fallback, no speech estimates.
+- `energy-pitch` estimates automatically when no `--pitch` is supplied.
+  Supplied known-source sidecars bypass estimation and retain strict validation;
+  invalid sidecars never fall back to estimation. Missing/failed estimation or
+  no voiced frames fail explicitly, even at zero pitch weight.
+  Preserve original-frame alignment and zero modulation for unvoiced or
+  unanalyzed frames. Keep estimated/known provenance in both SVGs, word groups
+  and preview labels; estimates must never masquerade as known-source JSON.
   Absolute pitch must survive centering as a broad shape component; mean
   subtraction must not erase it. Unvoiced source modulation is zero.
 - `src/main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
   writes shared root `tmp.svg`. Parent directories must exist.
 - Comparisons require a new explicit output directory and render/validate all
-  inputs before writing any files. Four-method comparison needs a valid
-  sidecar per word; real speech explicitly selects the first three.
+  inputs before writing any files. Four-method comparison works from WAVs alone.
+  An explicit `--pitch` override requires one valid known-source sidecar per word.
 - `src/merge.py` reads all `.svg` in its input directory and scales from the
   canvas origin, not per-path bounds. Merge `METHOD/words/`, not diagnostics
   or labeled previews. `--output` is required; keep output outside input. General group transforms

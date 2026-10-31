@@ -14,10 +14,11 @@ so comparisons can be repeated.
    speaker, the same name by several speakers, and different names by the
    same speaker. Keep microphone/distance and recording conditions consistent;
    include a separate varied-condition set. Preserve original WAVs.
-2. Explicitly select `--algorithms baseline energy energy-timbre` for real
-   speech unless genuine known-source pitch exists. Do not generate estimated
-   speech sidecars to make a four-way panel. Use generated known controls for
-   pitch experiments, clearly labeled as synthetic.
+2. Compare all four methods from the WAVs; `energy-pitch` estimates automatically
+   and is labeled accordingly. Record estimator versions and `[pitch_estimation]`
+   settings, and note audible/visible voicing or octave errors. Never present
+   these estimates as ground truth. Use generated known controls with explicit
+   `--pitch` sidecars for controlled accuracy experiments, labeled as synthetic.
 3. Shuffle/blind algorithm labels for human evaluation without changing
    geometry. Ask for roundness, visual appeal, seam quality, clutter/overlap,
    sense of personal connection, and preference at several viewing scales.
