@@ -1,6 +1,6 @@
 # Compare the art, not a biometric claim
 
-Use `compare.py` with the **same configuration** for every word/algorithm.
+Use `src/compare.py` with the **same configuration** for every word/algorithm.
 The algorithm panels contain the actual overlapping composition; also inspect
 the individual word curves and standalone `METHOD/overlay.svg`. Every word
 uses the same canvas, center, nominal diameter, orientation and stroke.

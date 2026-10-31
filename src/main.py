@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 import wave
-from config import add_render_arguments, config_from_args
+from config import DEFAULT_CONFIG, add_render_arguments, config_from_args
 from pitch import load_pitch
 from ripple import ripple
 
@@ -34,7 +34,7 @@ def main(argv=None):
     try:
         settings = config_from_args(args)
         diagnostic = args.diagnostic or args.output_svg.with_suffix(".diagnostic.svg")
-        protected = {args.input_wav.resolve(), Path(__file__).with_name("ripple.toml").resolve()}
+        protected = {args.input_wav.resolve(), DEFAULT_CONFIG.resolve()}
         protected.update(p.resolve() for p in (args.config, args.pitch) if p is not None)
         if args.output_svg.resolve() == diagnostic.resolve() or any(
                 p.resolve() in protected for p in (args.output_svg, diagnostic)):

@@ -5,26 +5,28 @@
 Ripple is a Python 3.11+ script collection, not an installed package or service.
 It makes artistic circular keepsakes from 16-bit PCM WAV recordings, not
 guaranteed unique biometric signatures or physically tattoo-ready designs.
+Python source lives in `src/`; configuration, tests and helper scripts remain
+at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
 
-- `ripple.toml`, `config.py`: version-1 defaults, strict TOML overrides,
+- `ripple.toml`, `src/config.py`: version-1 defaults, strict TOML overrides,
   validation and shared CLI options. Defaults -> explicit config -> CLI.
-- `audio.py`: floating channel averaging, DC removal, conservative relative
+- `src/audio.py`: floating channel averaging, DC removal, conservative relative
   silence trimming, gain normalization; retains original sample offsets.
-- `ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
+- `src/ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
   smoothing/extrema/recursive midpoints, diagnostic SVG. `ripple()` returns
   `(diagnostic_svg, circular_svg)` strings.
-- `features.py`: millisecond RMS, relative spectral bands, supplied pitch.
-- `pitch.py`: versioned, WAV-hash-bound known-ground-truth JSON; complete
+- `src/features.py`: millisecond RMS, relative spectral bands, supplied pitch.
+- `src/pitch.py`: versioned, WAV-hash-bound known-ground-truth JSON; complete
   original-frame coverage. **No pitch estimation, including external or
   manually corrected speech estimates.** Read `docs/pitch-input.md`.
-- `geometry.py`: bounded periodic Fourier profile, float radial geometry,
+- `src/geometry.py`: bounded periodic Fourier profile, float radial geometry,
   analytic matching cubic tangents including the closed seam.
-- `utils.py`: cyclic float median, baseline fits, XML SVG serialization.
-- `main.py`: single-conversion CLI; output-specific diagnostics.
-- `compare.py`: individual words, diagnostics, co-centered multiword overlays
+- `src/utils.py`: cyclic float median, baseline fits, XML SVG serialization.
+- `src/main.py`: single-conversion CLI; output-specific diagnostics.
+- `src/compare.py`: individual words, diagnostics, co-centered multiword overlays
   for each algorithm, labeled side-by-side algorithm preview.
-- `generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
-- `merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
+- `src/generate_fixtures.py`: deterministic WAV/JSON from actual oscillator controls.
+- `src/merge.py`: legacy path-only overlay/scaling, optional native-Cairo PNG.
 - `names.sh`: first-three-method comparison of four example names into a new
   explicit output directory; no parallel/shared-diagnostic race.
 - `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
@@ -37,10 +39,10 @@ Use a virtual environment from the repository root:
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
-python3 -m py_compile main.py ripple.py utils.py merge.py config.py audio.py pitch.py features.py geometry.py compare.py generate_fixtures.py
-python3 main.py --help
-python3 compare.py --help
-python3 merge.py --help
+python3 -m py_compile src/*.py
+python3 src/main.py --help
+python3 src/compare.py --help
+python3 src/merge.py --help
 python3 -m unittest discover -s tests -v
 ```
 
@@ -73,12 +75,12 @@ failed renderers; native PNG dimensions are checked when available.
   pitch weight. No invented Hz, no silent energy fallback, no speech estimates.
   Absolute pitch must survive centering as a broad shape component; mean
   subtraction must not erase it. Unvoiced source modulation is zero.
-- `main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
+- `src/main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
   writes shared root `tmp.svg`. Parent directories must exist.
 - Comparisons require a new explicit output directory and render/validate all
   inputs before writing any files. Four-method comparison needs a valid
   sidecar per word; real speech explicitly selects the first three.
-- `merge.py` reads all `.svg` in its input directory and scales from the
+- `src/merge.py` reads all `.svg` in its input directory and scales from the
   canvas origin, not per-path bounds. Merge `METHOD/words/`, not diagnostics
   or labeled previews. `--output` is required; keep output outside input. General group transforms
   are not supported by its legacy path-only parser.

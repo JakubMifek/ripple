@@ -10,15 +10,18 @@ Beauty, recognizability and tattoo suitability require human judgment.
 
 Python **3.11+** (standard-library TOML), NumPy and svgpathtools:
 
+Python source lives in `src/`. Run the following commands from the repository
+root; configuration, samples, tests, and the `names.sh` helper remain there.
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
-python3 main.py --help
-python3 compare.py --help
+python3 src/main.py --help
+python3 src/compare.py --help
 ```
 
-CairoSVG is included for optional PNG export in `merge.py`; it also needs
+CairoSVG is included for optional PNG export in `src/merge.py`; it also needs
 native Cairo. Missing Python/native Cairo produces an explicit warning when
 PNG export is implicit. An explicit `--png` request fails if it cannot render.
 SVG generation does not need Cairo. Use `--no-png` for SVG-only merging.
@@ -27,8 +30,8 @@ SVG generation does not need Cairo. Use `--no-png` for SVG-only merging.
 
 ```bash
 mkdir -p artwork
-python3 main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
-python3 main.py samples/HelloWorld.wav artwork/baseline.svg \
+python3 src/main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
+python3 src/main.py samples/HelloWorld.wav artwork/baseline.svg \
   --algorithm baseline --smoothness 0 --poly-degree 4 --circle
 ```
 
@@ -70,7 +73,7 @@ The baseline diagnostic profile is shown before its rendering gain.
 
 ## Configuration and artistic controls
 
-All defaults live in versioned [`ripple.toml`](ripple.toml), beside the scripts.
+All defaults live in versioned [`ripple.toml`](ripple.toml) at the repository root.
 Precedence is **project defaults -> explicitly selected `--config` -> CLI**.
 No configuration is discovered in the working directory. An override may
 contain a subset of settings but must declare `version = 1`; unknown settings,
@@ -89,7 +92,7 @@ deformation = 0.12
 ```
 
 ```bash
-python3 main.py samples/HelloWorld.wav artwork/custom.svg --config custom.toml --color navy
+python3 src/main.py samples/HelloWorld.wav artwork/custom.svg --config custom.toml --color navy
 ```
 
 `--poly-degree` (alias `--detail`) controls harmonic count or baseline
@@ -158,7 +161,7 @@ min-max normalization.
 To reproduce it, use a new output directory:
 
 ```bash
-python3 compare.py samples/HelloWorld.wav \
+python3 src/compare.py samples/HelloWorld.wav \
   --algorithms baseline energy energy-timbre \
   --output-dir artwork/hello-world-comparison
 ```
@@ -172,7 +175,7 @@ Use an explicit **new** output directory. With real recordings and no ground
 truth, explicitly select the first three methods:
 
 ```bash
-python3 compare.py samples/HelloWorld.wav samples/Kuba.wav \
+python3 src/compare.py samples/HelloWorld.wav samples/Kuba.wav \
   --algorithms baseline energy energy-timbre --output-dir artwork/comparison \
   --color black --height 1024
 ```
@@ -195,8 +198,8 @@ invalid inputs are checked/rendered before any comparison files are written;
 pitch is never silently replaced by energy.
 
 ```bash
-python3 generate_fixtures.py /tmp/ripple-known-controls
-python3 compare.py /tmp/ripple-known-controls/constant.wav \
+python3 src/generate_fixtures.py /tmp/ripple-known-controls
+python3 src/compare.py /tmp/ripple-known-controls/constant.wav \
   /tmp/ripple-known-controls/changing.wav /tmp/ripple-known-controls/interrupted.wav \
   --pitch /tmp/ripple-known-controls/constant.pitch.json \
   /tmp/ripple-known-controls/changing.pitch.json /tmp/ripple-known-controls/interrupted.pitch.json \
@@ -214,10 +217,10 @@ using the first three methods; it no longer overwrites `output_names/`.
 ## Merge existing SVGs
 
 ```bash
-python3 merge.py artwork/comparison/energy/words \
+python3 src/merge.py artwork/comparison/energy/words \
   --width 1024 --height 1024 --output artwork/merged.svg --no-png
 # With working CairoSVG + native Cairo:
-python3 merge.py artwork/comparison/energy/words \
+python3 src/merge.py artwork/comparison/energy/words \
   --width 1024 --height 1024 --output artwork/merged.svg --png artwork/merged.png
 ```
 
@@ -233,7 +236,7 @@ are not supported by this legacy path-only merger.
 ## Validation and human evaluation
 
 ```bash
-python3 -m py_compile main.py ripple.py utils.py merge.py config.py audio.py pitch.py features.py geometry.py compare.py generate_fixtures.py
+python3 -m py_compile src/*.py
 python3 -m unittest discover -s tests -v
 ```
 

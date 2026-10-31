@@ -7,7 +7,7 @@ from pathlib import Path
 import tomllib
 
 ALGORITHMS = ("baseline", "energy", "energy-timbre", "energy-pitch")
-DEFAULT_CONFIG = Path(__file__).with_name("ripple.toml")
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "ripple.toml"
 SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
                "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness", "baseline_gain"},

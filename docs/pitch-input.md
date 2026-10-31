@@ -91,9 +91,9 @@ when pitch weight is zero. No energy-only fallback is labeled `energy-pitch`.
 ## Generate a valid demonstrator
 
 ```bash
-python3 generate_fixtures.py /tmp/ripple-known-controls
+python3 src/generate_fixtures.py /tmp/ripple-known-controls
 mkdir -p artwork
-python3 main.py /tmp/ripple-known-controls/interrupted.wav artwork/known.svg \
+python3 src/main.py /tmp/ripple-known-controls/interrupted.wav artwork/known.svg \
   --algorithm energy-pitch --pitch /tmp/ripple-known-controls/interrupted.pitch.json
 ```
 
@@ -104,7 +104,7 @@ voicing. These are not real-speech fixtures. It refuses to overwrite a directory
 For comparisons, pass one sidecar per word in matching input order:
 
 ```bash
-python3 compare.py /tmp/ripple-known-controls/constant.wav \
+python3 src/compare.py /tmp/ripple-known-controls/constant.wav \
   /tmp/ripple-known-controls/changing.wav \
   --pitch /tmp/ripple-known-controls/constant.pitch.json \
   /tmp/ripple-known-controls/changing.pitch.json \

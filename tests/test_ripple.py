@@ -17,18 +17,21 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from svgpathtools import parse_path
 
+REPO = Path(__file__).resolve().parents[1]
+SRC = REPO / "src"
+sys.path.insert(0, str(SRC))
+
 from audio import preprocess
-from config import ALGORITHMS, config_from_args, load_config, validate_config
+from config import ALGORITHMS, DEFAULT_CONFIG, config_from_args, load_config, validate_config
 from features import frame_features, feature_profile
 from generate_fixtures import generate
 from geometry import circular_svg, evaluate_profile, periodic_coefficients
-from main import parse_args, render_file
+from main import main as main_command, parse_args, render_file
 from merge import export_png
 from pitch import Pitch, load_pitch, wav_hash
 from ripple import create_svg_path
 from utils import SVG_NS, smooth_waveform
 
-REPO = Path(__file__).resolve().parents[1]
 NS = {"s": SVG_NS}
 
 
@@ -75,7 +78,7 @@ class FixtureCase(unittest.TestCase):
             return preprocess(wf, self.settings["preprocess"])
 
     def run_cli(self, script, *args, ok=True):
-        result = subprocess.run([sys.executable, str(REPO / script), *map(str, args)],
+        result = subprocess.run([sys.executable, str(SRC / script), *map(str, args)],
                                 cwd=self.work, text=True, capture_output=True)
         if ok:
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -86,6 +89,7 @@ class FixtureCase(unittest.TestCase):
 
 class ConfigurationTests(FixtureCase):
     def test_defaults_precedence_and_no_circle_override(self):
+        self.assertEqual(DEFAULT_CONFIG, REPO / "ripple.toml")
         defaults = load_config()
         self.assertEqual(defaults["render"]["algorithm"], "baseline")
         self.assertEqual(defaults["render"]["max_width"], 16384)
@@ -512,6 +516,22 @@ class GeometryTests(FixtureCase):
 
 
 class InterfaceTests(FixtureCase):
+    def test_main_protects_root_defaults_for_both_outputs(self):
+        protected = self.work / "ripple.toml"
+        original = DEFAULT_CONFIG.read_bytes()
+        protected.write_bytes(original)
+        artwork = self.work / "artwork.svg"
+        for args in ([str(self.wav), str(protected)],
+                     [str(self.wav), str(artwork), "--diagnostic", str(protected)]):
+            with self.subTest(args=args), mock.patch("main.DEFAULT_CONFIG", protected):
+                with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                    with self.assertRaises(SystemExit) as error:
+                        main_command(args)
+                self.assertEqual(error.exception.code, 2)
+                self.assertIn("must not overwrite", stderr.getvalue())
+                self.assertEqual(protected.read_bytes(), original)
+                self.assertFalse(artwork.exists())
+
     def test_four_cli_paths_diagnostics_and_errors(self):
         known = self.work / "known"
         generate(known)
@@ -540,7 +560,7 @@ class InterfaceTests(FixtureCase):
         self.assertEqual(artwork.get("stroke-width"), "3.0")
 
     def test_parallel_cli_diagnostic_isolation(self):
-        processes = [subprocess.Popen([sys.executable, str(REPO / "main.py"), str(self.wav), f"word-{i}.svg",
+        processes = [subprocess.Popen([sys.executable, str(SRC / "main.py"), str(self.wav), f"word-{i}.svg",
                                       "--smoothness", "0", "--max-width", "512", "--height", "256", "--stroke-width", "1"],
                                      cwd=self.work, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                      for i in range(2)]
