@@ -78,7 +78,8 @@ failed renderers; native PNG dimensions are checked when available.
   auto-fit individual bounding boxes. Overlay overlap is intentional.
 - Artwork side is `min(max_width, height)`; the light-gray reference circle is
   enabled by default (`--no-circle` hides it), never a substitute for the curve.
-  Mark it with `data-role="reference-circle"`: light `#c8c8c8`, 1 px, dotted.
+  Mark it with `data-role="reference-circle"`: light `#c8c8c8`, 2 px, dotted.
+  Share `REFERENCE_STROKE_WIDTH` from `src/config.py` across rendering and merging.
   Deduplicate identical references below all word curves in comparisons and
   legacy merges; artwork stroke settings must not change reference thickness.
   Use floating geometry and matching seam tangents.

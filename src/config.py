@@ -9,6 +9,7 @@ import tomllib
 ALGORITHMS = ("baseline", "energy", "energy-timbre", "energy-pitch", "energy-timbre-pitch")
 TIMBRE_ALGORITHMS = ("energy-timbre", "energy-timbre-pitch")
 PITCH_ALGORITHMS = ("energy-pitch", "energy-timbre-pitch")
+REFERENCE_STROKE_WIDTH = 2
 DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "ripple.toml"
 SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
@@ -96,6 +97,8 @@ def validate_config(settings):
     number(r, "nominal_radius", 0.1, 0.45)
     if r["nominal_radius"] * (1 + r["deformation"]) + r["stroke_width"] / (2 * min(r["max_width"], r["height"])) >= 0.5:
         raise ValueError("Nominal radius, deformation and stroke must fit inside the canvas.")
+    if r["circle"] and r["nominal_radius"] + REFERENCE_STROKE_WIDTH / (2 * min(r["max_width"], r["height"])) >= 0.5:
+        raise ValueError("Nominal reference circle and its stroke must fit inside the canvas.")
     if p["trim_method"] not in ("rms", "peak"):
         raise ValueError("trim_method must be rms or peak.")
     number(p, "trim_db", -100, -10)
@@ -151,7 +154,8 @@ def add_render_arguments(parser):
     parser.add_argument("--stroke-width", type=float)
     parser.add_argument("--deformation", type=float, help="Fractional radial deformation, 0 to 0.35")
     parser.add_argument("--roundness", type=float, help="High-harmonic attenuation, 0 to 1")
-    parser.add_argument("--circle", action=argparse.BooleanOptionalAction, default=None, help="Add a faint 1 px dotted nominal reference circle beneath the artwork")
+    parser.add_argument("--circle", action=argparse.BooleanOptionalAction, default=None,
+                        help=f"Add a light-gray {REFERENCE_STROKE_WIDTH} px dotted nominal reference circle beneath the artwork")
 
 
 def config_from_args(args):

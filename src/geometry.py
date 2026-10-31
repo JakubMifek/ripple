@@ -1,6 +1,7 @@
 """Bounded periodic radial curves with analytic, matching cubic join tangents."""
 
 import numpy as np
+from config import REFERENCE_STROKE_WIDTH
 from utils import create_waveform_svg
 
 
@@ -64,7 +65,7 @@ def circular_svg(coefficients, render, metadata=None):
     paths = []
     if render["circle"]:
         paths.append({"d": radial_path(np.zeros(1, dtype=complex), render),
-                      "stroke": "#c8c8c8", "stroke_width": 1, "stroke-dasharray": "1 5",
+                      "stroke": "#c8c8c8", "stroke_width": REFERENCE_STROKE_WIDTH, "stroke-dasharray": "1 5",
                       "data-role": "reference-circle"})
     paths.append({"d": radial_path(coefficients, render), "stroke": render["color"],
                   "stroke_width": render["stroke_width"]})

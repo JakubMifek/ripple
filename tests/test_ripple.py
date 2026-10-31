@@ -94,7 +94,7 @@ class FixtureCase(unittest.TestCase):
     def assert_reference_circle(self, element):
         self.assertEqual(element.get("data-role"), "reference-circle")
         self.assertEqual(element.get("stroke"), "#c8c8c8")
-        self.assertEqual(element.get("stroke-width"), "1")
+        self.assertEqual(element.get("stroke-width"), "2")
         self.assertEqual(element.get("stroke-dasharray"), "1 5")
         self.assertEqual(element.get("stroke-linecap"), "round")
         self.assertEqual(element.get("fill"), "none")
@@ -110,6 +110,18 @@ class FixtureCase(unittest.TestCase):
 
 
 class ConfigurationTests(FixtureCase):
+    def test_reference_stroke_fits_small_canvases(self):
+        for width, height in ((16, 32), (32, 16)):
+            settings = copy.deepcopy(self.settings)
+            settings["render"].update(max_width=width, height=height, nominal_radius=0.45,
+                                      deformation=0, stroke_width=0.01, circle=True)
+            with self.assertRaisesRegex(ValueError, "reference circle"):
+                validate_config(settings)
+            settings["render"]["circle"] = False
+            validate_config(settings)
+            settings["render"].update(max_width=32, height=32, circle=True)
+            validate_config(settings)
+
     def test_defaults_precedence_and_no_circle_override(self):
         self.assertEqual(DEFAULT_CONFIG, REPO / "ripple.toml")
         self.assertEqual(ALGORITHMS, ("baseline", "energy", "energy-timbre", "energy-pitch", "energy-timbre-pitch"))

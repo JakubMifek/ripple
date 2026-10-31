@@ -5,6 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 from typing import List
 from svgpathtools import parse_path, Path
+from config import REFERENCE_STROKE_WIDTH
 from utils import reference_first
 
 def parse_svg_paths(svg_file: str) -> List[ET.Element]:
@@ -35,7 +36,7 @@ def get_svg_size(svg_file: str) -> tuple[int, int]:
 
 def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float, thickness: int) -> None:
     """Scale the d attribute of a path element by scale_x and scale_y using svgpathtools."""
-    path_elem.attrib['stroke-width'] = '1' if path_elem.get('data-role') == 'reference-circle' else str(thickness)
+    path_elem.attrib['stroke-width'] = str(REFERENCE_STROKE_WIDTH if path_elem.get('data-role') == 'reference-circle' else thickness)
     d_str = path_elem.attrib['d']
     path = parse_path(d_str)
     # Ensure path is always a Path object (not a single segment)
@@ -75,7 +76,8 @@ def _main(argv=None):
     parser.add_argument('--width', type=int, default=4096, help='Output SVG width (default: 4096)')
     parser.add_argument('--height', type=int, default=4096, help='Output SVG height (default: 4096)')
     parser.add_argument('--output', type=str, required=True, help='Explicit output SVG filename, outside the input directory')
-    parser.add_argument('--thickness', type=int, default=2, help='Artwork stroke thickness (default: 2); reference circles stay 1 px')
+    parser.add_argument('--thickness', type=int, default=2,
+                        help=f'Artwork stroke thickness (default: 2); reference circles stay {REFERENCE_STROKE_WIDTH} px')
     parser.add_argument('--png', type=str, help='Explicit PNG filename (failure is an error); implicit default: OUTPUT_STEM.png')
     parser.add_argument('--no-png', action='store_true', help='Only write SVG')
     args = parser.parse_args(argv)
