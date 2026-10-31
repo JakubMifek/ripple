@@ -17,8 +17,10 @@ smoothness = 0.3333
 baseline_gain = 19.2
 
 [preprocess]
-trim_db = -40.0
-trim_padding_ms = 10.0
+trim_method = "rms"
+trim_trigger_db = -20.0
+trim_db = -30.0
+trim_padding_ms = 20.0
 normalize_peak = 0.9
 
 [features]

@@ -13,7 +13,7 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "ripple.toml"
 SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
                "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness", "baseline_gain"},
-    "preprocess": {"trim_db", "trim_padding_ms", "normalize_peak"},
+    "preprocess": {"trim_method", "trim_trigger_db", "trim_db", "trim_padding_ms", "normalize_peak"},
     "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight",
                  "pitch_weight", "bands_hz", "band_weights", "pitch_reference_hz",
                  "pitch_octaves", "pitch_absolute_weight", "pitch_inflection_weight"},
@@ -95,7 +95,12 @@ def validate_config(settings):
     number(r, "nominal_radius", 0.1, 0.45)
     if r["nominal_radius"] * (1 + r["deformation"]) + r["stroke_width"] / (2 * min(r["max_width"], r["height"])) >= 0.5:
         raise ValueError("Nominal radius, deformation and stroke must fit inside the canvas.")
+    if p["trim_method"] not in ("rms", "peak"):
+        raise ValueError("trim_method must be rms or peak.")
     number(p, "trim_db", -100, -10)
+    number(p, "trim_trigger_db", -100, -10)
+    if p["trim_method"] == "rms" and p["trim_db"] > p["trim_trigger_db"]:
+        raise ValueError("trim_db must not exceed trim_trigger_db for RMS trimming.")
     number(p, "trim_padding_ms", 0, 1000)
     number(p, "normalize_peak", 0.01, 1)
     number(f, "window_ms", 1, 1000)

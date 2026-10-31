@@ -10,8 +10,9 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
 
 - `ripple.toml`, `src/config.py`: version-1 defaults, strict TOML overrides,
   validation and shared CLI options. Defaults -> explicit config -> CLI.
-- `src/audio.py`: floating channel averaging, DC removal, conservative relative
-  silence trimming, gain normalization; retains original sample offsets.
+- `src/audio.py`: floating channel averaging, DC removal, sustained-RMS trimming
+  with quiet boundary extension, gain normalization; retains original offsets.
+  `presets/legacy-trim.toml` reproduces the former sample-peak trimming.
 - `src/ripple.py`: orchestration, legacy signed-waveform baseline with cyclic median
   smoothing/extrema/recursive midpoints, diagnostic SVG. `ripple()` returns
   `(diagnostic_svg, circular_svg)` strings.
@@ -58,6 +59,12 @@ failed renderers; native PNG dimensions are checked when available.
 
 - Shared preprocessing applies to **all five methods**, including baseline.
   Preserve internal pauses and sample-rate/original-frame alignment.
+  Default trimming uses 20 ms RMS / 5 ms hops, sustained -20 dB anchors,
+  -30 dB edge extension, a 40 ms quiet-gap stop and 20 ms padding. Keep all
+  internal regions between anchors; never use pitch voicing as a speech crop.
+  This is not denoising or guaranteed speech detection. No sustained activity
+  fails explicitly, never silently falls back to peak trimming. Preserve the
+  legacy preset and original-peak gain normalization.
 - Default algorithm is baseline. `--smoothness` is baseline-only; `--poly-degree`
   (alias `--detail`) controls fit detail. Polynomial fit is baseline-only and
   is projected to periodic geometry. New methods use Fourier profiles.

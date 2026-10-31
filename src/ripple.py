@@ -141,5 +141,6 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
             envelopes.append(list(zip(features["pitch_time"], features["pitch"])))
     gain = render["baseline_gain"] if render["algorithm"] == "baseline" else 1
     coefficients = periodic_coefficients(profile * gain, render["detail"], render["roundness"])
-    return (diagnostic_svg(audio, render, profile, waveform, envelopes, metadata),
+    diagnostic_metadata = {**(metadata or {}), "trim-method": settings["preprocess"]["trim_method"]}
+    return (diagnostic_svg(audio, render, profile, waveform, envelopes, diagnostic_metadata),
             circular_svg(coefficients, render, metadata))

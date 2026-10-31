@@ -42,6 +42,19 @@ def signal(rate=8000, duration=0.6, hz=220, gain=0.6):
     return gain * envelope * np.sin(2 * np.pi * hz * t)
 
 
+def noisy_word(rate=8000):
+    values = np.zeros(round(1.5 * rate))
+    for start, end, gain, hz in ((0.05, 0.15, 0.025, 80), (0.4, 0.5, 0.025, 1200),
+                                 (0.5, 0.65, 0.5, 200), (0.85, 1.0, 0.5, 300),
+                                 (1.0, 1.1, 0.025, 1200), (1.25, 1.35, 0.025, 80)):
+        first, last = round(start * rate), round(end * rate)
+        values[first:last] = gain * np.sin(2 * np.pi * hz * np.arange(last - first) / rate)
+    for time in (0.25, 1.4):
+        first = round(time * rate)
+        values[first:first + 2] = (0.5, -0.5)
+    return values
+
+
 def write_wav(path, values, rate=8000, channels=1, width=2):
     values = np.asarray(values)
     if channels > 1 and values.ndim == 1:
@@ -112,6 +125,9 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(defaults["render"]["baseline_gain"], 19.2)
         self.assertEqual(defaults["features"]["energy_weight"], 3.96)
         self.assertEqual(defaults["features"]["timbre_weight"], 2.64)
+        self.assertEqual(defaults["preprocess"], {
+            "trim_method": "rms", "trim_trigger_db": -20.0, "trim_db": -30.0,
+            "trim_padding_ms": 20.0, "normalize_peak": 0.9})
         self.assertEqual(defaults["pitch_estimation"], {
             "floor_hz": 60.0, "ceiling_hz": 600.0, "hop_ms": 10.0, "voicing_threshold": 0.45})
         self.assertEqual(defaults, load_config(REPO / "presets/expressive.toml"))
@@ -140,6 +156,15 @@ class ConfigurationTests(FixtureCase):
             "version = 1\n[render]\nbaseline_gain = -1",
             "version = 1\n[render]\nbaseline_gain = 65",
             "version = 1\n[render]\nbaseline_gain = nan",
+            'version = 1\n[preprocess]\ntrim_method = "speech"',
+            "version = 1\n[preprocess]\ntrim_method = true",
+            "version = 1\n[preprocess]\ntrim_trigger_db = nan",
+            "version = 1\n[preprocess]\ntrim_trigger_db = true",
+            "version = 1\n[preprocess]\ntrim_trigger_db = -101",
+            "version = 1\n[preprocess]\ntrim_trigger_db = -9",
+            "version = 1\n[preprocess]\ntrim_trigger_db = -40",
+            "version = 1\n[preprocess]\ntrim_db = -15",
+            "version = 1\n[preprocess]\ntrim_padding_ms = -1",
             "version = 1\n[pitch_estimation]\nfloor_hz = 0",
             "version = 1\n[pitch_estimation]\nfloor_hz = 600",
             "version = 1\n[pitch_estimation]\nceiling_hz = 50",
@@ -198,12 +223,114 @@ class PreprocessingTests(FixtureCase):
         values = np.concatenate((np.zeros(800), tone, np.zeros(400), tone, np.zeros(800)))
         write_wav(self.wav, values)
         audio = self.audio()
-        self.assertGreater(audio.start, 650)
-        self.assertLess(audio.start, 810)
-        self.assertEqual(audio.end, len(values) - audio.start + 1)
+        self.assertEqual((audio.start, audio.end), (520, 3080))
         internal = audio.samples[1600-audio.start:2000-audio.start]
         np.testing.assert_allclose(internal, 0, atol=1e-10)
         self.assertEqual(audio.original_frames, len(values))
+
+    def test_rms_detached_noise_clicks_and_quiet_attached_boundaries(self):
+        for rate in (8000, 16000, 44100, 48000):
+            with self.subTest(rate=rate):
+                values = noisy_word(rate)
+                write_wav(self.wav, values, rate=rate)
+                audio = self.audio()
+                if rate == 8000:
+                    self.assertEqual((audio.start, audio.end), (2960, 9040))
+                self.assertAlmostEqual(audio.start / rate, 0.37, delta=0.005)
+                self.assertAlmostEqual(audio.end / rate, 1.13, delta=0.005)
+                self.assertEqual(audio.original_frames, len(values))
+                self.assertEqual(audio.sample_rate, rate)
+                self.assertEqual(len(audio.samples), audio.end - audio.start)
+                decoded = np.rint(values * 32767) / 32768
+                decoded -= decoded.mean()
+                expected = decoded[audio.start:audio.end] * (0.9 / np.max(np.abs(decoded)))
+                np.testing.assert_array_equal(audio.samples, expected)
+                pause = audio.samples[round(0.65 * rate) - audio.start:round(0.85 * rate) - audio.start]
+                np.testing.assert_allclose(pause, 0, atol=1e-10)
+                for start, end in ((0.4, 0.5), (1.0, 1.1)):
+                    quiet = audio.samples[round(start * rate) - audio.start:round(end * rate) - audio.start]
+                    self.assertGreater(np.sqrt(np.mean(quiet ** 2)), 0.03)
+
+    def test_rms_noisy_gain_polarity_stereo_and_padding(self):
+        values = noisy_word()
+        write_wav(self.wav, values)
+        reference = self.audio()
+        for gain, channels, padding in ((-1, 1, 0), (0.4, 2, 0), (1, 1, 400)):
+            with self.subTest(gain=gain, channels=channels, padding=padding):
+                write_wav(self.wav, np.pad(values * gain, (padding, padding)), channels=channels)
+                audio = self.audio()
+                self.assertEqual((audio.start, audio.end),
+                                 (reference.start + padding, reference.end + padding))
+                # Both the waveform and its normalizing peak undergo 16-bit rounding.
+                half_lsb = 0.5 / 32767
+                tolerance = 2 * 0.9 * half_lsb * (1 / (0.5 - half_lsb)
+                                                 + 1 / (0.5 * abs(gain) - half_lsb))
+                np.testing.assert_allclose(audio.samples, reference.samples * np.sign(gain),
+                                           atol=tolerance, rtol=0)
+
+    def test_rms_boundary_extension_bridges_short_quiet_gaps(self):
+        values = noisy_word()
+        values[3760:3920] = 0
+        values[8080:8240] = 0
+        write_wav(self.wav, values)
+        audio = self.audio()
+        self.assertEqual((audio.start, audio.end), (2960, 9040))
+        for start, end in ((3760, 3920), (8080, 8240)):
+            np.testing.assert_allclose(audio.samples[start - audio.start:end - audio.start], 0, atol=1e-10)
+
+    def test_rms_short_inputs_and_final_partial_hop(self):
+        self.settings["preprocess"]["trim_padding_ms"] = 0
+        for count in (4, 159, 160, 161, 319, 333):
+            with self.subTest(count=count):
+                write_wav(self.wav, np.where(np.arange(count) % 2, -0.2, 0.2))
+                audio = self.audio()
+                self.assertEqual((audio.start, audio.end), (0, count))
+                self.assertTrue(np.isfinite(audio.samples).all())
+                self.assertAlmostEqual(np.max(np.abs(audio.samples)), 0.9)
+
+    def test_rms_requires_sustained_activity_without_fallback(self):
+        values = np.zeros(4800)
+        values[1000:1002] = (0.8, -0.8)
+        write_wav(self.wav, values)
+        with self.assertRaisesRegex(ValueError, "No sustained activity"):
+            self.audio()
+        result = self.run_cli("main.py", self.wav, "click.svg", "--algorithm", "energy", ok=False)
+        self.assertIn("No sustained activity", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse((self.work / "click.svg").exists())
+        self.assertFalse((self.work / "click.diagnostic.svg").exists())
+        clean = self.work / "clean.wav"
+        write_wav(clean, signal())
+        self.run_cli("compare.py", clean, self.wav, "--algorithms", "energy",
+                     "--output-dir", "click-comparison", ok=False)
+        self.assertFalse((self.work / "click-comparison").exists())
+
+    def test_legacy_preset_reproduces_sample_peak_trimming_exactly(self):
+        self.settings["preprocess"] = load_config(REPO / "presets/legacy-trim.toml")["preprocess"]
+        for values in (np.pad(signal(), (800, 800)), noisy_word(), signal(duration=0.02)):
+            with self.subTest(count=len(values)):
+                write_wav(self.wav, values)
+                decoded = np.rint(values * 32767) / 32768
+                decoded -= decoded.mean()
+                peak = np.max(np.abs(decoded))
+                active = np.flatnonzero(np.abs(decoded) >= peak * 0.01)
+                start, end = max(0, int(active[0]) - 80), min(len(values), int(active[-1]) + 81)
+                audio = self.audio()
+                self.assertEqual((audio.start, audio.end), (start, end))
+                np.testing.assert_array_equal(audio.samples, decoded[start:end] * (0.9 / peak))
+
+    def test_all_methods_and_both_baseline_fits_share_noisy_word_trim(self):
+        write_wav(self.wav, noisy_word())
+        audio = self.audio()
+        for method, fitting in [(method, "fourier") for method in ALGORITHMS] + [("baseline", "poly")]:
+            with self.subTest(method=method, fitting=fitting):
+                self.settings["render"].update(algorithm=method, fitting=fitting)
+                diagnostic, circular = render_file(self.wav, self.settings)
+                root = ET.fromstring(diagnostic)
+                self.assertEqual(root.get("data-trim-method"), "rms")
+                self.assertEqual(int(root.get("data-trim-start")), audio.start)
+                self.assertEqual(int(root.get("data-trim-end")), audio.end)
+                self.assertTrue(paths(circular)[0].isclosed())
 
     def test_silence_dc_empty_short_and_unsupported(self):
         for values, width in [(np.zeros(400), 2), (np.full(400, 0.2), 2),
@@ -494,6 +621,18 @@ class PitchEstimationTests(FixtureCase):
             write_wav(self.wav, np.pad(signal() * multiplier, (padding, padding)), channels=channels)
             actual = self.estimate().values(interior + padding)
             np.testing.assert_allclose(actual, reference, atol=0.1, rtol=0)
+
+    def test_noise_aware_trim_preserves_original_pitch_coordinates(self):
+        write_wav(self.wav, noisy_word())
+        audio = self.audio()
+        pitch = self.estimate()
+        np.testing.assert_array_equal(pitch.values(np.arange(audio.start)), 0)
+        np.testing.assert_array_equal(pitch.values(np.arange(audio.end, audio.original_frames)), 0)
+        np.testing.assert_allclose(pitch.values(np.arange(4480, 4720)), 200, atol=1, rtol=0)
+        np.testing.assert_allclose(pitch.values(np.arange(7280, 7520)), 300, atol=1, rtol=0)
+        features = frame_features(audio, self.settings["features"], pitch)
+        np.testing.assert_array_equal(features["hz"], pitch.values(np.arange(audio.start, audio.end)))
+        np.testing.assert_array_equal(features["pitch"][5600 - audio.start:6400 - audio.start], 0)
 
     def test_geometry_metadata_ablation_and_size_independence(self):
         write_wav(self.wav, signal(hz=110))

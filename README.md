@@ -45,10 +45,11 @@ python3 src/main.py samples/HelloWorld.wav artwork/baseline.svg \
 ```
 
 Only uncompressed **16-bit PCM WAV** is accepted. All channels are averaged
-in floating point. All methods remove DC, trim surrounding silence
-conservatively and normalize peak gain. Internal pauses and relative timing
-are retained. Shared preprocessing intentionally changes old baseline images.
-Empty, silent, DC-only, truncated and insufficient inputs fail explicitly.
+in floating point. All methods remove DC, use sustained RMS activity to trim
+surrounding silence and detached low-level noise, and normalize peak gain.
+Internal pauses and relative timing are retained. Shared preprocessing
+intentionally changes older images. Empty, silent, DC-only, truncated and
+insufficient inputs fail explicitly, as do recordings with no sustained activity.
 
 | Algorithm | What shapes the curve |
 |---|---|
@@ -86,6 +87,8 @@ The baseline diagnostic profile is shown before its rendering gain.
 For `energy-pitch`, the blue diagnostic curve is pitch modulation (not raw Hz);
 the red curve is energy. For `energy-timbre-pitch`, red is energy, blue is timbre,
 and green is pitch modulation. Both SVGs retain pitch provenance and estimator versions.
+Diagnostics also record `data-trim-method`, `data-trim-start` and `data-trim-end`;
+the bounds are original WAV sample-frame indices, with an exclusive end.
 
 ## Configuration and artistic controls
 
@@ -137,10 +140,31 @@ Use **1** for the previous unscaled baseline or **0** for a nominal circle.
 Tiny residuals stay tiny, but the gain can also emphasize recording artifacts;
 it is an artistic contrast control, not evidence of additional voice information.
 
-The `[preprocess]` table controls relative trim threshold, padding and peak
-normalization. A bare recording without leading/trailing room cannot retain
-the same padding as a recording with surrounding silence; small border
-differences can remain. `[features]` controls RMS window/hop milliseconds,
+The `[preprocess]` table controls trimming and peak normalization:
+
+- `trim_method = "rms"` (default): 20 ms RMS windows at 5 ms hops, including the
+  final window. Sustained runs at `trim_trigger_db = -20` relative to maximum
+  RMS anchor the first and last active regions. A run needs at least 30 ms of
+  hops (six frames at 48 kHz); shorter clips require all available frames.
+- Boundaries extend through quieter activity at `trim_db = -30`, stopping after
+  40 ms of consecutive below-threshold frames. All gaps **between** the first
+  and last sustained regions remain intact. `trim_padding_ms = 20` adds context
+  beyond the retained windows to protect quiet onsets and releases.
+- This is an energy-based boundary heuristic, **not speech recognition or
+  denoising**. It does not use pitch voicing to cut words. Loud sustained noise
+  may remain, and very quiet detached consonants may be missed. Review difficult
+  recordings rather than assuming that the detected interval is exact speech.
+
+Peak normalization remains unchanged: `normalize_peak = 0.9` uses the original
+DC-removed recording's peak, not per-curve min-max scaling. Use
+[`presets/legacy-trim.toml`](presets/legacy-trim.toml) with `--config` to reproduce
+the previous sample-peak detector (`trim_method = "peak"`, `trim_db = -40`,
+10 ms padding). In peak mode, `trim_trigger_db` is unused. A custom RMS
+`trim_db` must be no higher than `trim_trigger_db`.
+
+A bare recording without leading/trailing room cannot retain the same padding
+as a recording with surrounding silence; small border differences can remain,
+including trim-window hop alignment. `[features]` controls RMS window/hop milliseconds,
 compression, weights and band edges. RMS uses rectangular zero-padded
 windows; bands use Hann-windowed FFT power, normalized by total band power.
 Edges must cover the WAV Nyquist frequency; frequencies above Nyquist simply
@@ -237,6 +261,26 @@ python3 src/compare.py "samples/Eliska (1).wav" "samples/Eliska (2).wav" \
 
 Individual recording curves and diagnostics are included under each algorithm
 in the [comparison directory](output_samples/eliska-recordings-comparison/).
+
+The gallery uses the improved RMS trimming. Waveform/RMS and spectral inspection
+found detached low-frequency edge bursts that the previous sample threshold
+retained. The new retained intervals are:
+
+| Take | Previous interval (s) | RMS interval (s) |
+|---|---|---|
+| 1 | 0.193-1.510 | 0.360-1.045 |
+| 2 | 0.482-1.510 | 0.470-1.105 |
+| 3 | 0.402-1.440 | 0.395-1.015 |
+| 4 | 0.220-1.260 | 0.210-0.840 |
+| 5 | 0.175-0.988 | 0.170-0.780 |
+| 6 | 0.297-1.460 | 0.285-0.915 |
+
+This removes about 0.20-0.63 s of net edge context per take without changing
+their retained peaks or the approved curve weights. The improvement is in the
+time span mapped around the circle, not a new gain rule. These are measured
+automatic crop boundaries, not manually confirmed phonetic labels. The original
+WAVs are untouched. Add `--config presets/legacy-trim.toml` and choose a new
+output directory to compare against the previous trimming.
 
 ### Combined names example
 

@@ -6,7 +6,11 @@ the individual word curves and standalone `METHOD/overlay.svg`. Every word
 uses the same canvas, center, nominal diameter, orientation and stroke.
 Never independently fit each bounding box to the canvas: that destroys the
 common-circle composition. Record the WAVs, configuration and CLI overrides
-so comparisons can be repeated.
+so comparisons can be repeated. Record `[preprocess]` settings too: default
+RMS trimming and the legacy sample-peak preset can produce different curves
+from the same WAV. Diagnostic SVG metadata records the trim method and original
+sample-frame interval. Listen to the retained interval for quiet onsets/releases;
+an energy boundary is not a verified speech label.
 
 ## Suggested listening and viewing study
 
@@ -34,7 +38,7 @@ so comparisons can be repeated.
    alone does not establish safe or aesthetically durable tattoo dimensions.
 
 The shared preprocessing reduces polarity/gain sensitivity for energy methods
-and removes surrounding silence conservatively; it does not guarantee
+and removes surrounding silence and detached weak edge noise; it does not guarantee
 invariance to pronunciation, noise, microphone coloration, clipping or room
 acoustics. Baseline is deliberately signed-waveform based and is not expected
 to resist polarity inversion. Synthetic tests validate numerical contracts,

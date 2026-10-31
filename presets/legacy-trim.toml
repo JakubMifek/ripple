@@ -1,0 +1,6 @@
+version = 1
+
+[preprocess]
+trim_method = "peak"
+trim_db = -40.0
+trim_padding_ms = 10.0

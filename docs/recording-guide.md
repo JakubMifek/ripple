@@ -57,6 +57,16 @@ effects for your first comparison; Ripple already handles DC removal, gain
 normalization, and conservative trimming. Keep an untouched original.
 Keep recordings local unless you deliberately choose to share or commit them.
 
+Ripple now anchors trimming to sustained energy, then keeps quieter surrounding
+sounds with extra padding. This avoids letting small detached bumps after a word
+occupy a large part of the curve. It preserves pauses within the word and does
+not discard consonants just because they are unvoiced. It cannot reliably
+separate loud handling noise from speech, and unusually quiet beginnings/endings
+can still be missed. Keep the microphone still while recording and listening
+back. For difficult takes, compare the old, more permissive trim with
+`--config presets/legacy-trim.toml`; do not fix a clipped consonant by boosting
+the volume afterward.
+
 ## 2. Generate a comparison from the recording
 
 After the [repository setup](../README.md#setup), run this from the repository
