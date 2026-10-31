@@ -97,6 +97,14 @@ python3 src/main.py recordings/my-name-take-01.wav artwork/my-name.svg \
 Use `--algorithm energy-timbre-pitch` instead to combine energy, voice timbre
 and estimated pitch in one curve.
 
+To make pitch more noticeable, add `--pitch-sensitivity 2` to either command.
+The default is 1.35; larger values up to 4 make pitch stronger, and 0 removes
+its effect on the drawing (pitch must still be valid). This changes the artwork,
+not which sounds Praat considers voiced. More strength can also expose pitch
+estimation errors. Average voice pitch and the rises/falls within the word now
+have separate response scales; the [technical guide](pitch-input.md#rendering-absolute-pitch-and-unvoiced-portions)
+explains their optional TOML controls.
+
 **For your own voice recordings, you only need to prepare the WAV files.
 You do not need to establish the pitch yourself.**
 

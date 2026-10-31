@@ -14,9 +14,9 @@ SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
                "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness", "baseline_gain"},
     "preprocess": {"trim_method", "trim_trigger_db", "trim_db", "trim_padding_ms", "normalize_peak"},
-    "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight",
+    "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight", "timbre_mode",
                  "pitch_weight", "bands_hz", "band_weights", "pitch_reference_hz",
-                 "pitch_octaves", "pitch_absolute_weight", "pitch_inflection_weight"},
+                 "pitch_octaves", "pitch_inflection_octaves", "pitch_absolute_weight", "pitch_inflection_weight"},
     "pitch_estimation": {"floor_hz", "ceiling_hz", "hop_ms", "voicing_threshold"},
 }
 
@@ -31,7 +31,7 @@ def validate_keys(settings):
             raise ValueError(f"Unknown or missing configuration settings in {section}; expected {', '.join(sorted(keys))}.")
 
 
-def load_config(path=None, overrides=None):
+def load_config(path=None, overrides=None, feature_overrides=None):
     with DEFAULT_CONFIG.open("rb") as stream:
         settings = tomllib.load(stream)
     validate_keys(settings)
@@ -52,11 +52,12 @@ def load_config(path=None, overrides=None):
                     raise ValueError(f"Unknown configuration setting: {section}.{key}")
                 settings[section][key] = value
     settings = copy.deepcopy(settings)
-    for key, value in (overrides or {}).items():
-        if value is not None:
-            if key not in settings["render"]:
-                raise ValueError(f"Unknown render override: {key}")
-            settings["render"][key] = value
+    for section, selected in (("render", overrides), ("features", feature_overrides)):
+        for key, value in (selected or {}).items():
+            if value is not None:
+                if key not in settings[section]:
+                    raise ValueError(f"Unknown {section} override: {key}")
+                settings[section][key] = value
     validate_config(settings)
     return settings
 
@@ -106,11 +107,14 @@ def validate_config(settings):
     number(f, "window_ms", 1, 1000)
     number(f, "hop_ms", 0.1, f["window_ms"])
     number(f, "compression", 0.05, 1)
+    if f["timbre_mode"] not in ("residual", "legacy"):
+        raise ValueError("timbre_mode must be residual or legacy.")
     for key in ("energy_weight", "timbre_weight", "pitch_weight",
                 "pitch_absolute_weight", "pitch_inflection_weight"):
         number(f, key, 0, 4)
     number(f, "pitch_reference_hz", 1, 20000)
     number(f, "pitch_octaves", 0.1, 8)
+    number(f, "pitch_inflection_octaves", 0.1, 8)
     estimation = settings["pitch_estimation"]
     number(estimation, "floor_hz", 20, 2000)
     number(estimation, "ceiling_hz", 20, 10000)
@@ -137,6 +141,8 @@ def add_render_arguments(parser):
     parser.add_argument("--mode", choices=["Ripple"], default="Ripple", help="Legacy mode name")
     parser.add_argument("--smoothness", type=float, help="Baseline cyclic signed-waveform smoothing, 0 to 1")
     parser.add_argument("--baseline-gain", type=float, help="Fixed baseline profile contrast, 0 to 64; 1 preserves unscaled extraction")
+    parser.add_argument("--pitch-sensitivity", type=float,
+                        help="Pitch display strength (features.pitch_weight), 0 to 4; not estimator sensitivity")
     parser.add_argument("--poly-degree", "--detail", dest="detail", type=int, help="Fourier terms / baseline polynomial degree")
     parser.add_argument("--max-width", type=int, help="Diagnostic width; circular side is min(width, height)")
     parser.add_argument("--height", type=int)
@@ -151,4 +157,5 @@ def add_render_arguments(parser):
 def config_from_args(args):
     return load_config(args.config, {key: getattr(args, key, None) for key in (
         "algorithm", "smoothness", "detail", "max_width", "height", "fitting",
-        "color", "stroke_width", "deformation", "roundness", "circle", "baseline_gain")})
+        "color", "stroke_width", "deformation", "roundness", "circle", "baseline_gain")},
+        {"pitch_weight": getattr(args, "pitch_sensitivity", None)})

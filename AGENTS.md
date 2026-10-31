@@ -91,10 +91,18 @@ failed renderers; native PNG dimensions are checked when available.
   and preview labels; estimates must never masquerade as known-source JSON.
   Absolute pitch must survive centering as a broad shape component; mean
   subtraction must not erase it. Unvoiced source modulation is zero.
+  `pitch_octaves` scales average log-pitch; `pitch_inflection_octaves` separately
+  scales deviations from its voiced mean. Both are fixed global scales, never
+  per-word min-max normalization. `--pitch-sensitivity` overrides
+  `features.pitch_weight` in both CLIs; it must not change estimation or Hz.
 - Reuse `PITCH_ALGORITHMS` and `TIMBRE_ALGORITHMS` from `src/config.py` for
   feature selection, pitch routing and diagnostics. The combined method adds
   energy, timbre and pitch before the periodic fit using the existing weights;
   zero-feature ablations must reproduce the corresponding simpler method.
+  Default timbre removes DC and the projection onto centered energy on the
+  normalized-time grid; do not amplify the residual. Share `timbre_profile`
+  between composition and the corrected diagnostic trace. Preserve exact old
+  feature behavior through `presets/legacy-features.toml`.
 - `src/main.py` writes `OUTPUT_STEM.diagnostic.svg` or `--diagnostic`; **never**
   writes shared root `tmp.svg`. Parent directories must exist.
 - Comparisons require a new explicit output directory and render/validate all

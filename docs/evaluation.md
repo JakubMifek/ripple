@@ -53,3 +53,12 @@ known oscillator pitch separately from inflection controls and note that
 changing a real sound's pitch can also change energy/band features. Do not
 attribute every geometric change to just one feature without controlling
 the others.
+
+For feature-mapping comparisons, `presets/legacy-features.toml` restores the
+former timbre and pitch behavior without changing trimming. Default residual
+timbre removes the component explained by energy, not just a constant offset;
+check that varying spectral detail remains and that tiny residuals stay tiny.
+It does not separately encode constant average spectral color. For two-scale
+pitch, vary `pitch_octaves` and `pitch_inflection_octaves` independently using
+known controls, then compare `--pitch-sensitivity` values on the same recording.
+The detected/supplied Hz must not change with these drawing settings.

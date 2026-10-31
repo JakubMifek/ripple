@@ -43,7 +43,7 @@ def frame_features(audio, settings, pitch=None):
         absolute = np.zeros(len(hz))
         inflection = np.zeros(len(hz))
         absolute[voiced] = np.tanh(mean / settings["pitch_octaves"])
-        inflection[voiced] = np.tanh((log_pitch[voiced] - mean) / settings["pitch_octaves"])
+        inflection[voiced] = np.tanh((log_pitch[voiced] - mean) / settings["pitch_inflection_octaves"])
         sample_time = np.arange(len(hz)) / len(hz)
         modulation = (settings["pitch_absolute_weight"] * absolute * np.cos(2 * np.pi * sample_time)
                       + settings["pitch_inflection_weight"] * inflection)
@@ -52,13 +52,31 @@ def frame_features(audio, settings, pitch=None):
     return result
 
 
+def timbre_residual(energy, timbre):
+    """Remove DC and the energy-aligned component without amplifying the remainder."""
+    centered_energy = np.asarray(energy) - np.mean(energy)
+    centered_timbre = np.asarray(timbre) - np.mean(timbre)
+    norm = np.linalg.norm(centered_energy)
+    if norm == 0:
+        return centered_timbre
+    direction = centered_energy / norm
+    return centered_timbre - np.dot(centered_timbre, direction) * direction
+
+
+def timbre_profile(features, time, settings):
+    timbre = np.interp(time, features["time"], features["timbre"])
+    if settings["timbre_mode"] == "residual":
+        energy = np.interp(time, features["time"], features["energy"])
+        return timbre_residual(energy, timbre)
+    return timbre
+
+
 def feature_profile(features, algorithm, settings, count=2048):
     time = np.arange(count) / count
     energy = np.interp(time, features["time"], features["energy"])
     profile = settings["energy_weight"] * (energy - energy.mean())
     if algorithm in TIMBRE_ALGORITHMS:
-        secondary = np.interp(time, features["time"], features["timbre"])
-        profile += settings["timbre_weight"] * secondary
+        profile += settings["timbre_weight"] * timbre_profile(features, time, settings)
     if algorithm in PITCH_ALGORITHMS:
         # Interpolate modulation, not acoustic Hz; unvoiced source values remain zero.
         secondary = np.interp(time, features["pitch_time"], features["pitch"])

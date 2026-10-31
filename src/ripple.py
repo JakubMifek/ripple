@@ -5,7 +5,7 @@ import wave
 import numpy as np
 from audio import preprocess
 from config import PITCH_ALGORITHMS, TIMBRE_ALGORITHMS, load_config, validate_config
-from features import frame_features, feature_profile
+from features import frame_features, feature_profile, timbre_profile
 from geometry import periodic_coefficients, circular_svg
 from pitch import estimate_pitch
 from utils import create_waveform_svg, fit_polynomial_curve, fit_fourier_curve, smooth_waveform
@@ -136,7 +136,11 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
         profile = feature_profile(features, render["algorithm"], settings["features"])
         waveform, envelopes = audio.samples, [list(zip(features["time"], features["energy"]))]
         if pitch_data is None or render["algorithm"] in TIMBRE_ALGORITHMS:
-            envelopes.append(list(zip(features["time"], features["timbre"])))
+            time, timbre = features["time"], features["timbre"]
+            if render["algorithm"] in TIMBRE_ALGORITHMS and settings["features"]["timbre_mode"] == "residual":
+                time = np.arange(len(profile)) / len(profile)
+                timbre = timbre_profile(features, time, settings["features"])
+            envelopes.append(list(zip(time, timbre)))
         if pitch_data is not None:
             envelopes.append(list(zip(features["pitch_time"], features["pitch"])))
     gain = render["baseline_gain"] if render["algorithm"] == "baseline" else 1

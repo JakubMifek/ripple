@@ -24,7 +24,7 @@ sys.path.insert(0, str(SRC))
 from audio import preprocess
 from compare import comparison_preview, overlay
 from config import ALGORITHMS, DEFAULT_CONFIG, PITCH_ALGORITHMS, config_from_args, load_config, validate_config
-from features import frame_features, feature_profile
+from features import frame_features, feature_profile, timbre_profile, timbre_residual
 from generate_fixtures import generate
 from geometry import circular_svg, evaluate_profile, periodic_coefficients
 from main import main as main_command, parse_args, render_file
@@ -125,6 +125,10 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(defaults["render"]["baseline_gain"], 19.2)
         self.assertEqual(defaults["features"]["energy_weight"], 3.96)
         self.assertEqual(defaults["features"]["timbre_weight"], 2.64)
+        self.assertEqual(defaults["features"]["timbre_mode"], "residual")
+        self.assertEqual(defaults["features"]["pitch_weight"], 1.35)
+        self.assertEqual(defaults["features"]["pitch_octaves"], 2.0)
+        self.assertEqual(defaults["features"]["pitch_inflection_octaves"], 0.5)
         self.assertEqual(defaults["preprocess"], {
             "trim_method": "rms", "trim_trigger_db": -20.0, "trim_db": -30.0,
             "trim_padding_ms": 20.0, "normalize_peak": 0.9})
@@ -149,6 +153,12 @@ class ConfigurationTests(FixtureCase):
             "version = 1\n[features]\ncompression = nan",
             "version = 1\n[features]\nbands_hz = [0, 100, 50]",
             "version = 1\n[features]\nband_weights = [0]",
+            'version = 1\n[features]\ntimbre_mode = "unknown"',
+            "version = 1\n[features]\ntimbre_mode = true",
+            "version = 1\n[features]\npitch_inflection_octaves = 0",
+            "version = 1\n[features]\npitch_inflection_octaves = 9",
+            "version = 1\n[features]\npitch_inflection_octaves = nan",
+            "version = 1\n[features]\npitch_inflection_octaves = true",
             'version = 1\n[render]\nalgorithm = "energy"\nfitting = "poly"',
             "version = 1\n[render]\npoints = 64\ndetail = 128",
             "version = 1\n[render]\nnominal_radius = 0.45\ndeformation = 0.35",
@@ -181,6 +191,29 @@ class ConfigurationTests(FixtureCase):
         result = self.run_cli("main.py", self.wav, "no.svg", "--algorithm", "energy", "--fitting", "poly", ok=False)
         self.assertIn("only", result.stderr)
         self.assertFalse((self.work / "no.svg").exists())
+
+    def test_pitch_sensitivity_precedence_and_validation(self):
+        config = self.work / "pitch.toml"
+        config.write_text("version = 1\n[features]\npitch_weight = 0.2\n"
+                          "pitch_octaves = 4\npitch_inflection_octaves = 0.25\n")
+        _, args = parse_args([str(self.wav), "x.svg", "--config", str(config),
+                              "--pitch-sensitivity", "2"])
+        features = config_from_args(args)["features"]
+        self.assertEqual(features["pitch_weight"], 2)
+        self.assertEqual(features["pitch_octaves"], 4)
+        self.assertEqual(features["pitch_inflection_octaves"], 0.25)
+        self.assertEqual(load_config(config)["features"]["pitch_weight"], 0.2)
+        config.write_text("version = 1\n[features]\npitch_weight = 99\n")
+        self.assertEqual(config_from_args(args)["features"]["pitch_weight"], 2)
+        with self.assertRaisesRegex(ValueError, "Unknown features override"):
+            load_config(feature_overrides={"typo": 1})
+        for value in ("-1", "4.1", "nan", "inf"):
+            with self.subTest(value=value):
+                result = self.run_cli("main.py", self.wav, "bad-pitch.svg",
+                                     "--algorithm", "energy-pitch", "--pitch-sensitivity", value, ok=False)
+                self.assertIn("pitch_weight", result.stderr)
+                self.assertFalse((self.work / "bad-pitch.svg").exists())
+                self.assertFalse((self.work / "bad-pitch.diagnostic.svg").exists())
 
     def test_style_is_xml_escaped(self):
         self.settings["render"]["color"] = 'red" onload="bad & <'
@@ -431,7 +464,86 @@ class FeatureTests(FixtureCase):
         np.testing.assert_array_equal(varying["hz"][mask], 0)
         np.testing.assert_array_equal(varying["pitch"][mask], 0)
 
+    def test_timbre_residual_removes_energy_coupling_without_rescaling(self):
+        time = np.arange(2048) / 2048
+        energy = 0.4 + 0.15 * np.cos(2 * np.pi * time)
+        detail = 0.06 * np.sin(4 * np.pi * time)
+        for bias in (-1, -0.3, 0, 1):
+            with self.subTest(bias=bias):
+                residual = timbre_residual(energy, bias * energy + detail)
+                np.testing.assert_allclose(residual, detail, atol=1e-15, rtol=0)
+                self.assertAlmostEqual(np.dot(residual, energy - energy.mean()), 0, delta=1e-14)
+                np.testing.assert_allclose(timbre_residual(energy, bias * energy), 0,
+                                           atol=1e-15, rtol=0)
+        for constant in (0, 0.4):
+            np.testing.assert_allclose(timbre_residual(np.full_like(time, constant), detail),
+                                       detail, atol=1e-15, rtol=0)
+        tiny = timbre_residual(energy, -0.8 * energy + 1e-9 * detail)
+        self.assertLess(np.max(np.abs(tiny)), 7e-11)
+        features = {"time": time, "energy": energy, "timbre": -0.8 * energy + detail}
+        expected = (self.settings["features"]["energy_weight"] * (energy - energy.mean())
+                    + self.settings["features"]["timbre_weight"] * detail)
+        np.testing.assert_allclose(feature_profile(features, "energy-timbre", self.settings["features"]),
+                                   expected, atol=1e-14, rtol=0)
+
+    def test_two_pitch_scales_are_independent_and_do_not_inflate_tiny_changes(self):
+        audio = self.audio()
+        count = audio.original_frames
+        pitch = Pitch(((0, count // 2, 110), (count // 2, count, 220)))
+        settings = self.settings["features"]
+        original = frame_features(audio, settings, pitch)
+        np.testing.assert_allclose(original["absolute"], np.tanh(-0.5 / 2), atol=1e-14, rtol=0)
+        np.testing.assert_allclose(original["inflection"][:count // 2], np.tanh(-0.5 / 0.5),
+                                   atol=1e-14, rtol=0)
+        for key, independent, changed in (
+                ("pitch_octaves", "inflection", "absolute"),
+                ("pitch_inflection_octaves", "absolute", "inflection")):
+            altered = dict(settings, **{key: settings[key] / 2})
+            values = frame_features(audio, altered, pitch)
+            np.testing.assert_array_equal(values[independent], original[independent])
+            np.testing.assert_array_equal(values["hz"], original["hz"])
+            self.assertGreater(np.max(np.abs(values[changed] - original[changed])), 0.1)
+        base = feature_profile(original, "energy", settings)
+        weak = feature_profile(original, "energy-pitch", dict(settings, pitch_weight=0.45))
+        strong = feature_profile(original, "energy-pitch", dict(settings, pitch_weight=1.35))
+        np.testing.assert_allclose(strong - base, 3 * (weak - base), atol=1e-14, rtol=0)
+        tiny = Pitch(((0, count // 2, 220 * 2 ** -1e-9),
+                      (count // 2, count, 220 * 2 ** 1e-9)))
+        values = frame_features(audio, settings, tiny)
+        self.assertLess(np.max(np.abs(values["pitch"])), 1e-8)
+
+    def test_timbre_diagnostic_shows_the_composed_residual(self):
+        features = frame_features(self.audio(), self.settings["features"])
+        time = np.arange(2048) / 2048
+        values = timbre_profile(features, time, self.settings["features"])
+        render = self.settings["render"]
+        expected = create_svg_path([(t * render["max_width"], render["height"] * (0.5 - 0.42 * value))
+                                    for t, value in zip(time, values)])
+        for method in ("energy-timbre", "energy-timbre-pitch"):
+            render["algorithm"] = method
+            diagnostic = ET.fromstring(render_file(self.wav, self.settings)[0])
+            self.assertEqual(diagnostic.findall("s:path", NS)[2].get("d"), expected)
+
+    def test_legacy_feature_preset_reproduces_previous_mapping(self):
+        settings = load_config(REPO / "presets/legacy-features.toml")["features"]
+        self.assertEqual(settings["timbre_mode"], "legacy")
+        audio = self.audio()
+        pitch = Pitch(((0, audio.original_frames // 2, 110),
+                       (audio.original_frames // 2, audio.original_frames, 220)))
+        values = frame_features(audio, settings, pitch)
+        np.testing.assert_allclose(values["inflection"][:audio.original_frames // 2],
+                                   np.tanh(-0.5 / 2), atol=1e-14, rtol=0)
+        time = np.arange(2048) / 2048
+        energy = np.interp(time, values["time"], values["energy"])
+        timbre = np.interp(time, values["time"], values["timbre"])
+        modulation = np.interp(time, values["pitch_time"], values["pitch"])
+        expected = 3.96 * (energy - energy.mean()) + 2.64 * timbre + 0.45 * modulation
+        np.testing.assert_array_equal(feature_profile(values, "energy-timbre-pitch", settings), expected)
+
     def test_combined_profile_is_additive_and_features_ablate_independently(self):
+        time = np.arange(4800) / 8000
+        write_wav(self.wav, signal() + 0.2 * (1 + np.sin(4 * np.pi * time / 0.6))
+                  * np.sin(2 * np.pi * 2200 * time))
         audio = self.audio()
         count = audio.original_frames
         pitch = Pitch(((0, count // 2, 110), (count // 2, count, 330)))
@@ -877,6 +989,29 @@ class GeometryTests(FixtureCase):
 
 
 class InterfaceTests(FixtureCase):
+    def test_pitch_sensitivity_cli_and_comparison_ablation(self):
+        write_wav(self.wav, signal(hz=110))
+        for method, base in (("energy-pitch", "energy"), ("energy-timbre-pitch", "energy-timbre")):
+            with self.subTest(method=method):
+                self.run_cli("main.py", self.wav, f"{method}.svg", "--algorithm", method,
+                             "--pitch-sensitivity", "0")
+                actual = ET.parse(self.work / f"{method}.svg").getroot()
+                expected = ET.fromstring(render_file(self.wav, load_config(overrides={"algorithm": base}))[1])
+                self.assertEqual(actual.findall("s:path", NS)[-1].attrib,
+                                 expected.findall("s:path", NS)[-1].attrib)
+                self.assertEqual(actual.get("data-pitch-source"), "estimated")
+                self.run_cli("main.py", self.wav, "strong.svg", "--algorithm", method,
+                             "--pitch-sensitivity", "2")
+                strong = ET.parse(self.work / "strong.svg").getroot()
+                self.assertNotEqual(strong.findall("s:path", NS)[-1].get("d"),
+                                    actual.findall("s:path", NS)[-1].get("d"))
+        self.run_cli("compare.py", self.wav, "--algorithms", "energy-timbre", "energy-timbre-pitch",
+                     "--output-dir", "zero-pitch", "--pitch-sensitivity", "0")
+        documents = [ET.parse(next((self.work / "zero-pitch" / method / "words").glob("*.svg"))).getroot()
+                     for method in ("energy-timbre", "energy-timbre-pitch")]
+        self.assertEqual(documents[0].findall("s:path", NS)[-1].attrib,
+                         documents[1].findall("s:path", NS)[-1].attrib)
+
     def test_main_protects_root_defaults_for_both_outputs(self):
         protected = self.work / "ripple.toml"
         original = DEFAULT_CONFIG.read_bytes()

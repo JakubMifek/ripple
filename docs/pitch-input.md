@@ -137,13 +137,31 @@ No import from CSV or external estimated tracks is provided.
 ## Rendering, absolute pitch and unvoiced portions
 
 Known or estimated frequency is converted to log2 relative to a globally configured
-reference (`220 Hz`, two-octave scale by default). The mean voiced log-frequency
+reference (`220 Hz`). The mean voiced log-frequency
 controls a **broad cosine component**, not a constant radius offset that would
 disappear when centering a profile. Inflection around that mean adds local
 detail. Thus absolute pitch is retained between words, while this utterance's
 pitch changes remain encoded. Means are weighted by voiced sample duration.
 The absolute and inflection weights and total pitch weight are explicit
-artistic settings in `[features]`.
+artistic settings in `[features]`. Two separate fixed scales control the
+response: `pitch_octaves = 2.0` for the average-pitch component, and
+`pitch_inflection_octaves = 0.5` for within-word changes. Each log-pitch value
+is divided by its corresponding octave scale and compressed with `tanh`.
+Smaller scales increase sensitivity, without stretching each word's pitch range.
+
+The overall `pitch_weight` now defaults to **1.35** and is also available as
+`--pitch-sensitivity` in both `src/main.py` and `src/compare.py` (0 to 4).
+For example, `--pitch-sensitivity 2` gives pitch a stronger visual contribution.
+This is a drawing control, not an estimator/voicing-threshold control; it does
+not change the estimated Hz or supplied known-source data. The two component
+weights remain `pitch_absolute_weight = 0.6` and `pitch_inflection_weight = 0.4`.
+All these controls live in `[features]` and apply to both pitch-based methods.
+Increasing sensitivity can emphasize estimation errors as well as real inflection.
+The shared radial bound may prevent proportional increases in final deformation.
+
+For the previous feature mapping, use `--config presets/legacy-features.toml`.
+It restores pitch weight 0.45, the shared two-octave response for both components,
+and legacy timbre. The improved trimming remains enabled.
 
 Unvoiced source samples contribute **zero pitch modulation**. No Hz is filled,
 interpolated or invented across them. The modulation (not Hz) is resampled and

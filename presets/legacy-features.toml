@@ -1,0 +1,7 @@
+version = 1
+
+[features]
+timbre_mode = "legacy"
+pitch_weight = 0.45
+pitch_octaves = 2.0
+pitch_inflection_octaves = 2.0

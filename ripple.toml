@@ -29,11 +29,13 @@ hop_ms = 10.0
 compression = 0.5
 energy_weight = 3.96
 timbre_weight = 2.64
-pitch_weight = 0.45
+timbre_mode = "residual"
+pitch_weight = 1.35
 bands_hz = [0.0, 500.0, 1500.0, 3000.0, 24000.0]
 band_weights = [-1.0, -0.3, 0.3, 1.0]
 pitch_reference_hz = 220.0
 pitch_octaves = 2.0
+pitch_inflection_octaves = 0.5
 pitch_absolute_weight = 0.6
 pitch_inflection_weight = 0.4
 

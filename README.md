@@ -55,7 +55,7 @@ insufficient inputs fail explicitly, as do recordings with no sustained activity
 |---|---|
 | `baseline` (default) | Cyclic median of the signed waveform, extrema and legacy recursive midpoints; Fourier or polynomial fit |
 | `energy` | Short-time RMS, power-law dynamic-range compression, normalized utterance time |
-| `energy-timbre` | Energy plus weighted **relative spectral-band energies**, energy-gated to avoid decorating silence |
+| `energy-timbre` | Energy plus the **spectral-band variation not explained by the energy contour**, without amplifying the residual |
 | `energy-pitch` | Energy plus **automatically estimated pitch**, or supplied known ground truth: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
 | `energy-timbre-pitch` | Energy plus **both relative timbre and pitch**, combined before the shared periodic fit using the existing feature weights |
 
@@ -86,7 +86,8 @@ baseline envelopes or energy/band features, and the pre-periodic fitted profile.
 The baseline diagnostic profile is shown before its rendering gain.
 For `energy-pitch`, the blue diagnostic curve is pitch modulation (not raw Hz);
 the red curve is energy. For `energy-timbre-pitch`, red is energy, blue is timbre,
-and green is pitch modulation. Both SVGs retain pitch provenance and estimator versions.
+and green is pitch modulation. Timbre methods show the corrected, unweighted
+timbre residual in blue by default. Both SVGs retain pitch provenance and estimator versions.
 Diagnostics also record `data-trim-method`, `data-trim-start` and `data-trim-end`;
 the bounds are original WAV sample-frame indices, with an exclusive end.
 
@@ -169,11 +170,55 @@ compression, weights and band edges. RMS uses rectangular zero-padded
 windows; bands use Hann-windowed FFT power, normalized by total band power.
 Edges must cover the WAV Nyquist frequency; frequencies above Nyquist simply
 have no power. Positive/negative band weights encode an explicit artistic
-choice, not a learned identity model. Pitch reference/octave scale are global,
-not normalized per word. Zeroing all active secondary weights produces energy-only
+choice, not a learned identity model. Pitch reference and sensitivity scales are
+global, not normalized per word. Zeroing all active secondary weights produces energy-only
 geometry (pitch still must be valid if its algorithm is selected). See the TOML for
 all values. Style overrides include `--max-width`, `--height`, `--color`,
-`--stroke-width`, `--circle`; preprocessing and feature weights use TOML.
+`--stroke-width`, `--circle`; preprocessing and most feature controls use TOML.
+
+**Timbre no longer acts as an accidental roundness control.** With
+`features.timbre_mode = "residual"`, the energy-gated spectral-band signal loses
+its mean and its least-squares component along the centered energy contour,
+on the common normalized-time grid. This removes the energy-shaped contribution
+that low-frequency recordings previously used to cancel the energy deformation.
+The remaining spectral variation is added at its original magnitude, weighted
+by `timbre_weight`; it is not stretched to fill the available radial range.
+Constant spectral balance alone no longer changes energy contrast. This describes
+within-word spectral variation, not a separate encoding of average spectral color.
+The shared Fourier smoothing and amplitude bound still apply, so the final curve
+is not guaranteed to have more deviation at every angle or under every setting.
+
+**Pitch has two sensitivity scales and a stronger default.** Average voice pitch
+still contributes a broad bend; small rises/falls within a word now have their own,
+narrower response scale. Adjust overall strength in either CLI:
+
+```bash
+python3 src/main.py samples/HelloWorld.wav artwork/pitch.svg \
+  --algorithm energy-pitch --pitch-sensitivity 2
+python3 src/compare.py samples/HelloWorld.wav \
+  --output-dir artwork/pitch-comparison --pitch-sensitivity 2
+```
+
+`--pitch-sensitivity` overrides `features.pitch_weight` (default **1.35**, range
+0 to 4). It changes the drawing, **not Praat's pitch detection**. Zero removes
+pitch's geometric contribution but still requires valid pitch. It affects both
+pitch-based methods and leaves baseline and energy-only curves unchanged.
+The advanced `[features]` controls are:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `pitch_octaves` | `2.0` | Response scale for average log-pitch relative to `pitch_reference_hz` |
+| `pitch_inflection_octaves` | `0.5` | Separate response scale for log-pitch changes around the word's voiced mean |
+| `pitch_absolute_weight` | `0.6` | Broad average-pitch contribution |
+| `pitch_inflection_weight` | `0.4` | Within-word inflection contribution |
+
+Smaller octave scales are more sensitive; both accept 0.1 to 8 octaves.
+These are fixed global scales, not per-recording pitch-range normalization.
+More sensitivity also makes estimation errors more visible, and the shared
+geometry bound can limit the resulting change. Previously `pitch_octaves`
+controlled both components; it now controls only the average-pitch component.
+[`presets/legacy-features.toml`](presets/legacy-features.toml) restores the previous
+timbre mapping and pitch response/strength while keeping the improved trimming.
 
 `energy-timbre-pitch` adds the same energy, timbre and pitch contributions used
 by the simpler methods before Fourier fitting and bounding; it does not merge
@@ -276,8 +321,9 @@ retained. The new retained intervals are:
 | 6 | 0.297-1.460 | 0.285-0.915 |
 
 This removes about 0.20-0.63 s of net edge context per take without changing
-their retained peaks or the approved curve weights. The improvement is in the
-time span mapped around the circle, not a new gain rule. These are measured
+their retained peaks. The trimming improvement is in the time span mapped
+around the circle, not a new gain rule; the galleries also use the residual
+timbre and two-scale pitch defaults described above. These are measured
 automatic crop boundaries, not manually confirmed phonetic labels. The original
 WAVs are untouched. Add `--config presets/legacy-trim.toml` and choose a new
 output directory to compare against the previous trimming.
