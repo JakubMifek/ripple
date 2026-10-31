@@ -71,11 +71,25 @@ def create_waveform_svg(svg_width, svg_height, svg_paths, metadata=None):
         for key, value in metadata.items():
             root.set(f"data-{key}", str(value))
     for path in svg_paths:
-        ET.SubElement(root, f"{{{SVG_NS}}}path", {
+        element = ET.SubElement(root, f"{{{SVG_NS}}}path", {
             "d": path["d"], "fill": path.get("fill", "none"),
             "stroke": path["stroke"], "stroke-width": str(path["stroke_width"]),
             "stroke-linejoin": "round", "stroke-linecap": "round"})
+        for attribute in ("data-role", "stroke-dasharray"):
+            if attribute in path:
+                element.set(attribute, str(path[attribute]))
     return ET.tostring(root, encoding="unicode")
+
+
+def reference_first(elements):
+    """Place distinct marked references below artwork, preserving artwork order."""
+    references, artwork = {}, []
+    for element in elements:
+        if element.get("data-role") == "reference-circle":
+            references.setdefault(tuple(sorted(element.attrib.items())), element)
+        else:
+            artwork.append(element)
+    return list(references.values()) + artwork
 
 
 def fit_polynomial_curve(mid_points, poly_degree):

@@ -9,7 +9,7 @@ import wave
 import xml.etree.ElementTree as ET
 from config import ALGORITHMS, add_render_arguments, config_from_args
 from main import render_file
-from utils import SVG_NS
+from utils import SVG_NS, reference_first
 
 
 def word_name(index, path):
@@ -27,7 +27,12 @@ def overlay(documents, labels, method):
         group = ET.SubElement(root, f"{{{SVG_NS}}}g", {"data-word": label})
         title = ET.SubElement(group, f"{{{SVG_NS}}}title")
         title.text = label
-        group.extend(list(ET.fromstring(document)))
+        for child in ET.fromstring(document):
+            if child.get("data-role") == "reference-circle":
+                root.append(child)
+            else:
+                group.append(child)
+    root[:] = reference_first(root)
     return ET.tostring(root, encoding="unicode")
 
 

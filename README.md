@@ -57,9 +57,10 @@ cannot supply exact ground truth; the existing speech samples demonstrate only
 the first three methods. Read the [pitch input guide](docs/pitch-input.md)
 before using `--algorithm energy-pitch --pitch FILE.pitch.json`.
 
-The artwork is always circular. A light-gray nominal reference circle is
-enabled by default; it does not replace the word. `--no-circle` hides it,
-and `--circle` restores it when overriding configuration.
+The artwork is always circular. A faint light-gray (`#e0e0e0`), 1 px dotted
+nominal reference circle is enabled by default beneath the artwork; it does
+not replace the word. Its thickness is independent of the artwork stroke.
+`--no-circle` hides it, and `--circle` restores it when overriding configuration.
 The output is square with side `min(max_width, height)`, independent of audio
 duration. Default width/height are **16384 / 1024**; default nominal diameter is
 80% of that square's side, with up to 24% radial deformation about the nominal
@@ -196,7 +197,8 @@ diagnostics for the three methods.
 
 The [combined comparison](output_samples/names-comparison/comparison.svg)
 overlays **Kuba, Eliska, Baltazar, and Leontynka**, in that order. Each algorithm
-panel shares one nominal diameter and center across all four words.
+panel shares one nominal diameter and center across all four words, with a
+single dotted reference circle in the lowest layer beneath every black curve.
 
 ![Kuba, Eliska, Baltazar, and Leontynka overlaid by algorithm](output_samples/names-comparison/comparison.svg)
 
@@ -234,7 +236,9 @@ Output includes:
   file stems/paths; `METHOD/diagnostics/`: isolated diagnostic SVGs.
 
 All words use identical preprocessing settings and styling. Overlay overlap
-is intentional. Word labels are in SVG group titles; algorithm labels are in
+is intentional. Identical reference circles are drawn only once, behind all
+word curves, including when merging individual word SVGs with `src/merge.py`.
+Word labels are in SVG group titles; algorithm labels are in
 the preview. Default comparison includes all four methods and therefore
 requires **one valid `--pitch` JSON per WAV**, in the same order. Missing or
 invalid inputs are checked/rendered before any comparison files are written;

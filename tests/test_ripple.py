@@ -77,6 +77,14 @@ class FixtureCase(unittest.TestCase):
         with wave.open(str(path or self.wav), "rb") as wf:
             return preprocess(wf, self.settings["preprocess"])
 
+    def assert_reference_circle(self, element):
+        self.assertEqual(element.get("data-role"), "reference-circle")
+        self.assertEqual(element.get("stroke"), "#e0e0e0")
+        self.assertEqual(element.get("stroke-width"), "1")
+        self.assertEqual(element.get("stroke-dasharray"), "1 5")
+        self.assertEqual(element.get("stroke-linecap"), "round")
+        self.assertEqual(element.get("fill"), "none")
+
     def run_cli(self, script, *args, ok=True):
         result = subprocess.run([sys.executable, str(SRC / script), *map(str, args)],
                                 cwd=self.work, text=True, capture_output=True)
@@ -439,13 +447,14 @@ class GeometryTests(FixtureCase):
 
     def test_light_gray_reference_preserves_curve_and_nominal_radius(self):
         render = self.settings["render"]
+        render["stroke_width"] = 3
         theta = np.arange(2048) * 2 * np.pi / 2048
         coefficients = periodic_coefficients(np.sin(theta), render["detail"], render["roundness"])
         original = ET.fromstring(circular_svg(coefficients, render)).find("s:path", NS)
         render["circle"] = True
         root = ET.fromstring(circular_svg(coefficients, render))
         reference, artwork = root.findall("s:path", NS)
-        self.assertEqual(reference.get("stroke"), "#ccc")
+        self.assert_reference_circle(reference)
         self.assertEqual(artwork.attrib, original.attrib)
         path = parse_path(reference.get("d"))
         self.assertTrue(path.isclosed())
@@ -555,7 +564,7 @@ class InterfaceTests(FixtureCase):
         self.assertEqual(root.get("width"), "1024")
         self.assertEqual(root.get("height"), "1024")
         reference, artwork = root.findall("s:path", NS)
-        self.assertEqual(reference.get("stroke"), "#ccc")
+        self.assert_reference_circle(reference)
         self.assertEqual(artwork.get("stroke"), "black")
         self.assertEqual(artwork.get("stroke-width"), "3.0")
 
@@ -612,6 +621,62 @@ class InterfaceTests(FixtureCase):
         self.run_cli("compare.py", real, "--output-dir", "speech", "--algorithms", *ALGORITHMS[:3],
                      "--smoothness", 0, "--poly-degree", 4, "--max-width", 512, "--height", 256, "--stroke-width", 1)
         self.assertFalse((self.work / "speech/energy-pitch").exists())
+
+    def test_comparison_reference_is_once_below_all_words_and_preview(self):
+        known = self.work / "known"
+        generate(known)
+        labels = ["constant", "changing", "interrupted", "constant"]
+        inputs = [known / f"{label}.wav" for label in labels]
+        pitches = [known / f"{label}.pitch.json" for label in labels]
+        output = self.work / "comparison"
+        self.run_cli("compare.py", *inputs, "--output-dir", output, "--pitch", *pitches,
+                     "--smoothness", 0, "--max-width", 512, "--height", 256,
+                     "--stroke-width", 3, "--deformation", 0.18)
+        preview = ET.parse(output / "comparison.svg").getroot()
+        self.assertEqual([text.text for text in preview.findall(".//s:text", NS)], list(ALGORITHMS))
+        self.assertEqual(len(preview.findall("s:g", NS)), len(ALGORITHMS))
+        for method, panel in zip(ALGORITHMS, preview.findall("s:g", NS)):
+            with self.subTest(method=method):
+                overlay = ET.parse(output / method / "overlay.svg").getroot()
+                self.assertEqual(len(overlay), 5)
+                self.assert_reference_circle(overlay[0])
+                self.assertEqual(len(overlay.findall(".//s:path", NS)), 5)
+                groups = overlay.findall("s:g", NS)
+                self.assertEqual([g.get("data-word") for g in groups], labels)
+                self.assertEqual([g.find("s:title", NS).text for g in groups], labels)
+                words = sorted((output / method / "words").glob("*.svg"))
+                self.assertEqual(len(words), len(labels))
+                for group, word in zip(groups, words):
+                    reference, artwork = ET.parse(word).getroot().findall("s:path", NS)
+                    self.assertEqual(reference.attrib, overlay[0].attrib)
+                    self.assertEqual(len(group.findall("s:path", NS)), 1)
+                    self.assertEqual(group.find("s:path", NS).attrib, artwork.attrib)
+                    self.assertEqual(artwork.get("stroke"), "black")
+                    self.assertEqual(artwork.get("stroke-width"), "3.0")
+                    self.assertIsNone(artwork.get("stroke-dasharray"))
+                preview_art = panel.find("s:g", NS)
+                self.assertEqual([ET.tostring(child) for child in preview_art],
+                                 [ET.tostring(child) for child in overlay])
+
+    def test_merge_reference_is_once_below_artwork_and_keeps_its_style(self):
+        inputs = self.work / "merge-inputs"
+        inputs.mkdir()
+        self.settings["render"].update(circle=True, color="#e0e0e0")
+        circular = render_file(self.wav, self.settings)[1]
+        for name in ("a.svg", "b.svg"):
+            (inputs / name).write_text(circular)
+        self.run_cli("merge.py", inputs, "--width", 512, "--height", 512,
+                     "--output", "merged.svg", "--thickness", 3, "--no-png")
+        elements = ET.parse(self.work / "merged.svg").getroot().findall("s:path", NS)
+        self.assertEqual(len(elements), 3)
+        self.assert_reference_circle(elements[0])
+        for element in elements[1:]:
+            self.assertIsNone(element.get("data-role"))
+            self.assertIsNone(element.get("stroke-dasharray"))
+            self.assertEqual(element.get("stroke"), "#e0e0e0")
+            self.assertEqual(element.get("stroke-width"), "3")
+        np.testing.assert_allclose(sample_path((self.work / "merged.svg").read_text()),
+                                   sample_path(circular) * 2, atol=1e-8)
 
     def test_merge_compatibility_and_optional_png(self):
         inputs = self.work / "merge-inputs"

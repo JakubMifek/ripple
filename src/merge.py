@@ -5,6 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 from typing import List
 from svgpathtools import parse_path, Path
+from utils import reference_first
 
 def parse_svg_paths(svg_file: str) -> List[ET.Element]:
     """Parse all <path> elements from an SVG file."""
@@ -34,8 +35,7 @@ def get_svg_size(svg_file: str) -> tuple[int, int]:
 
 def scale_path(path_elem: ET.Element, scale_x: float, scale_y: float, thickness: int) -> None:
     """Scale the d attribute of a path element by scale_x and scale_y using svgpathtools."""
-    # Set thickness
-    path_elem.attrib['stroke-width'] = str(thickness)  # Scale thickness by x factor
+    path_elem.attrib['stroke-width'] = '1' if path_elem.get('data-role') == 'reference-circle' else str(thickness)
     d_str = path_elem.attrib['d']
     path = parse_path(d_str)
     # Ensure path is always a Path object (not a single segment)
@@ -75,7 +75,7 @@ def _main(argv=None):
     parser.add_argument('--width', type=int, default=4096, help='Output SVG width (default: 4096)')
     parser.add_argument('--height', type=int, default=4096, help='Output SVG height (default: 4096)')
     parser.add_argument('--output', type=str, required=True, help='Explicit output SVG filename, outside the input directory')
-    parser.add_argument('--thickness', type=int, default=2, help='Stroke thickness for the SVG paths (default: 2)')
+    parser.add_argument('--thickness', type=int, default=2, help='Artwork stroke thickness (default: 2); reference circles stay 1 px')
     parser.add_argument('--png', type=str, help='Explicit PNG filename (failure is an error); implicit default: OUTPUT_STEM.png')
     parser.add_argument('--no-png', action='store_true', help='Only write SVG')
     args = parser.parse_args(argv)
@@ -114,8 +114,7 @@ def _main(argv=None):
     svg_ns = 'http://www.w3.org/2000/svg'
     ET.register_namespace('', svg_ns)
     svg_root = ET.Element('{%s}svg' % svg_ns, width=str(args.width), height=str(args.height), version='1.1')
-    for path in all_paths:
-        svg_root.append(path)
+    svg_root.extend(reference_first(all_paths))
     tree = ET.ElementTree(svg_root)
     tree.write(args.output, encoding='utf-8', xml_declaration=True)
     print(f'Merged SVG written to {args.output}')
