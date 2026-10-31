@@ -1,5 +1,9 @@
 # Known-ground-truth pitch input (version 1)
 
+For microphone recording steps and a ready-to-run known-pitch example, start
+with the [simple recording guide](recording-guide.md). This page documents the
+technical input contract.
+
 `energy-pitch` accepts **16-bit PCM WAV + JSON**, not CSV. JSON keeps provenance,
 audio binding and complete alignment together. Ripple does **not** estimate,
 detect, infer, correct or automatically fill pitch. This method is an

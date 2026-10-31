@@ -26,6 +26,10 @@ native Cairo. Missing Python/native Cairo produces an explicit warning when
 PNG export is implicit. An explicit `--png` request fails if it cannot render.
 SVG generation does not need Cairo. Use `--no-png` for SVG-only merging.
 
+Have a microphone? Start with the [simple recording and pitch guide](docs/recording-guide.md):
+Audacity setup, the exact WAV export settings, and how to generate genuine
+known-pitch examples separately from natural speech.
+
 ## One recording
 
 ```bash
