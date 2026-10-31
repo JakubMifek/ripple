@@ -142,7 +142,8 @@ def validate_config(settings):
 
 def add_render_arguments(parser):
     parser.add_argument("--config", type=Path, help="Version-1 TOML overrides (project defaults are always loaded first)")
-    parser.add_argument("--algorithm", choices=ALGORITHMS)
+    parser.add_argument("--algorithm", choices=ALGORITHMS,
+                        help="Rendering method (default: render.algorithm in ripple.toml)")
     parser.add_argument("--orientation", choices=("recording", "fixed"),
                         help="Start angle: stable recording hash (default) or fixed at 0 degrees")
     parser.add_argument("--mode", choices=["Ripple"], default="Ripple", help="Legacy mode name")

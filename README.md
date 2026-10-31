@@ -52,11 +52,15 @@ and editable scene export.
 
 ## One recording
 
+Single conversions default to **energy-timbre-pitch**, combining energy,
+timbre and automatically estimated pitch. Choose `--algorithm baseline`
+explicitly for the original method. Comparisons still default to all five methods.
+
 ```bash
 mkdir -p artwork
 python3 src/main.py samples/HelloWorld.wav artwork/hello.svg --algorithm energy
 python3 src/main.py samples/HelloWorld.wav artwork/pitch.svg --algorithm energy-pitch
-python3 src/main.py samples/HelloWorld.wav artwork/combined.svg --algorithm energy-timbre-pitch
+python3 src/main.py samples/HelloWorld.wav artwork/combined.svg
 python3 src/main.py samples/HelloWorld.wav artwork/baseline.svg \
   --algorithm baseline --smoothness 0 --poly-degree 4 --circle
 ```
@@ -70,11 +74,11 @@ insufficient inputs fail explicitly, as do recordings with no sustained activity
 
 | Algorithm | What shapes the curve |
 |---|---|
-| `baseline` (default) | Cyclic median of the signed waveform, extrema and legacy recursive midpoints; Fourier or polynomial fit |
+| `baseline` | Cyclic median of the signed waveform, extrema and legacy recursive midpoints; Fourier or polynomial fit |
 | `energy` | Short-time RMS, power-law dynamic-range compression, normalized utterance time |
 | `energy-timbre` | Energy plus the **spectral-band variation not explained by the energy contour**, without amplifying the residual |
 | `energy-pitch` | Energy plus **automatically estimated pitch**, or supplied known ground truth: absolute log-frequency in a broad harmonic and relative inflection in time-varying detail |
-| `energy-timbre-pitch` | Energy plus **both relative timbre and pitch**, combined before the shared periodic fit using the existing feature weights |
+| `energy-timbre-pitch` (default) | Energy plus **both relative timbre and pitch**, combined before the shared periodic fit using the existing feature weights |
 
 Both pitch-based methods estimate pitch directly from the WAV using Praat autocorrelation.
 Estimates are not ground truth and can contain octave/voicing errors. CLI output,

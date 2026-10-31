@@ -87,6 +87,8 @@ def main(argv=None):
             raise ValueError("When --pitch is supplied, provide one known-source sidecar per input WAV.")
         if not needs_pitch and args.pitch is not None:
             raise ValueError("--pitch requires energy-pitch or energy-timbre-pitch in --algorithms.")
+        # Validate against a requested method, not the single-conversion default.
+        args.algorithm = args.algorithms[0]
         base = config_from_args(args)
         labels = [p.stem for p in args.inputs]
         names = [word_name(i, p) for i, p in enumerate(args.inputs, 1)]

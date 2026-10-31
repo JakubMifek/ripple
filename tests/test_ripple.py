@@ -85,8 +85,8 @@ class FixtureCase(unittest.TestCase):
         self.work = Path(self.temporary.name)
         self.wav = self.work / "word.wav"
         write_wav(self.wav, signal())
-        # Feature invariances exclude decorative rotation; OrientationTests cover hashed orientation.
-        self.settings = load_config(overrides={"smoothness": 0, "detail": 8, "max_width": 512, "height": 256,
+        # Keep baseline/feature fixtures independent of project defaults and decorative rotation.
+        self.settings = load_config(overrides={"algorithm": "baseline", "smoothness": 0, "detail": 8, "max_width": 512, "height": 256,
                                               "stroke_width": 1, "deformation": 0.18, "circle": False,
                                               "orientation": "fixed"})
 
@@ -129,7 +129,7 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(DEFAULT_CONFIG, REPO / "ripple.toml")
         self.assertEqual(ALGORITHMS, ("baseline", "energy", "energy-timbre", "energy-pitch", "energy-timbre-pitch"))
         defaults = load_config()
-        self.assertEqual(defaults["render"]["algorithm"], "baseline")
+        self.assertEqual(defaults["render"]["algorithm"], "energy-timbre-pitch")
         self.assertEqual(defaults["render"]["max_width"], 16384)
         self.assertEqual(defaults["render"]["height"], 1024)
         self.assertEqual(defaults["render"]["color"], "black")
@@ -163,6 +163,38 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(settings["render"]["orientation"], "recording")
         self.assertEqual(load_config(config)["render"]["orientation"], "fixed")
         self.assertEqual(settings["preprocess"], defaults["preprocess"])
+
+    def test_default_combined_cli_api_and_algorithm_overrides(self):
+        expected = render_file(self.wav, load_config(overrides={"algorithm": "energy-timbre-pitch"}))
+        self.assertEqual(render_file(self.wav, load_config()), expected)
+        with wave.open(str(self.wav), "rb") as wav:
+            self.assertEqual(ripple(wav), expected)
+        result = self.run_cli("main.py", self.wav, "default.svg")
+        self.assertIn("estimated automatically with Praat", result.stdout)
+        self.assertEqual((self.work / "default.svg").read_text(), expected[1])
+        self.assertEqual((self.work / "default.diagnostic.svg").read_text(), expected[0])
+        self.assertEqual(ET.fromstring(expected[1]).get("data-algorithm"), "energy-timbre-pitch")
+
+        config = self.work / "baseline.toml"
+        config.write_text('version = 1\n[render]\nalgorithm = "baseline"\n')
+        arguments = [str(self.wav), "override.svg", "--config", str(config)]
+        _, args = parse_args(arguments)
+        self.assertEqual(config_from_args(args)["render"]["algorithm"], "baseline")
+        _, args = parse_args([*arguments, "--algorithm", "energy-timbre-pitch"])
+        self.assertEqual(config_from_args(args)["render"]["algorithm"], "energy-timbre-pitch")
+        with mock.patch("ripple.estimate_pitch", side_effect=ValueError("estimator unavailable")):
+            with self.assertRaisesRegex(ValueError, "estimator unavailable"):
+                render_file(self.wav, load_config())
+            baseline = render_file(self.wav, load_config(config))[1]
+            self.assertEqual(ET.fromstring(baseline).get("data-algorithm"), "baseline")
+            self.assertIsNone(ET.fromstring(baseline).get("data-pitch-source"))
+
+        known = self.work / "known"
+        generate(known)
+        with mock.patch("ripple.estimate_pitch", side_effect=AssertionError("Must use supplied pitch")):
+            supplied = render_file(known / "constant.wav", load_config(), known / "constant.pitch.json")[1]
+        self.assertEqual(ET.fromstring(supplied).get("data-algorithm"), "energy-timbre-pitch")
+        self.assertEqual(ET.fromstring(supplied).get("data-pitch-source"), "known-generating-controls")
 
     def test_unknown_invalid_and_method_restrictions(self):
         cases = [
@@ -1180,7 +1212,7 @@ class InterfaceTests(FixtureCase):
             self.assertIn("estimated automatically with Praat", result.stdout)
             self.assertEqual(ET.parse(self.work / "estimated.svg").getroot().get("data-pitch-source"), "estimated")
         self.assertFalse((self.work / "x.svg").exists())
-        self.run_cli("main.py", wav, "x.svg", "--pitch", pitch, ok=False)
+        self.run_cli("main.py", wav, "x.svg", "--algorithm", "baseline", "--pitch", pitch, ok=False)
         self.run_cli("main.py", wav, wav, ok=False)
         self.run_cli("main.py", wav, "x.svg", "--diagnostic", "x.svg", ok=False)
         self.run_cli("main.py", wav, "x.svg", "--diagnostic", "custom.svg")
@@ -1205,6 +1237,16 @@ class InterfaceTests(FixtureCase):
         for i in range(2):
             self.assertTrue((self.work / f"word-{i}.diagnostic.svg").exists())
         self.assertFalse((self.work / "tmp.svg").exists())
+
+    def test_baseline_only_polynomial_comparison_ignores_single_conversion_default(self):
+        config = self.work / "poly.toml"
+        config.write_text('version = 1\n[render]\nfitting = "poly"\nsmoothness = 0\ndetail = 8\n')
+        self.run_cli("main.py", self.wav, "baseline.svg", "--algorithm", "baseline", "--config", config)
+        self.run_cli("compare.py", self.wav, "--algorithms", "baseline", "--config", config,
+                     "--output-dir", "poly-comparison")
+        word = next((self.work / "poly-comparison/baseline/words").glob("*.svg"))
+        self.assertEqual(word.read_text(), (self.work / "baseline.svg").read_text())
+        self.assertFalse((self.work / "poly-comparison/energy-timbre-pitch").exists())
 
     def test_comparison_multiword_overlays_and_labels(self):
         known = self.work / "known"

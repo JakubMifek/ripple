@@ -1,7 +1,7 @@
 version = 1
 
 [render]
-algorithm = "baseline"
+algorithm = "energy-timbre-pitch"
 max_width = 16384
 height = 1024
 color = "black"

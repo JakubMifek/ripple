@@ -90,18 +90,17 @@ do not all cluster on the right. This only rotates the curve; it does not change
 its shape. Add `--orientation fixed` to start every curve on the right when
 comparing shapes directly.
 
-For just the pitch-based curve:
+For one curve using the default energy + timbre + pitch algorithm:
 
 ```bash
 mkdir -p artwork
-python3 src/main.py recordings/my-name-take-01.wav artwork/my-name.svg \
-  --algorithm energy-pitch
+python3 src/main.py recordings/my-name-take-01.wav artwork/my-name.svg
 ```
 
-Use `--algorithm energy-timbre-pitch` instead to combine energy, voice timbre
-and estimated pitch in one curve.
+Add `--algorithm energy-pitch` to leave out timbre, or `--algorithm baseline`
+to use the original method without pitch estimation.
 
-To make pitch more noticeable, add `--pitch-sensitivity 2` to either command.
+For pitch-based methods, add `--pitch-sensitivity 2` to make pitch more noticeable.
 The default is 1.35; larger values up to 4 make pitch stronger, and 0 removes
 its effect on the drawing (pitch must still be valid). This changes the artwork,
 not which sounds Praat considers voiced. More strength can also expose pitch

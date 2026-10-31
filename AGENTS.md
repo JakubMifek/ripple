@@ -69,7 +69,11 @@ failed renderers; native PNG dimensions are checked when available.
   This is not denoising or guaranteed speech detection. No sustained activity
   fails explicitly, never silently falls back to peak trimming. Preserve the
   legacy preset and original-peak gain normalization.
-- Default algorithm is baseline. `--smoothness` is baseline-only; `--poly-degree`
+- Default algorithm is `energy-timbre-pitch`, with automatic local pitch
+  estimation unless a known-source sidecar is supplied. Select baseline explicitly
+  with `--algorithm baseline` or configuration. Comparisons still default to all
+  five methods and validate settings against their requested algorithms.
+  `--smoothness` is baseline-only; `--poly-degree`
   (alias `--detail`) controls fit detail. Polynomial fit is baseline-only and
   is projected to periodic geometry. New methods use Fourier profiles.
 - `--baseline-gain` is a fixed display gain before the shared geometry limiter,
