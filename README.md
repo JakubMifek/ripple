@@ -66,7 +66,7 @@ known pitch. An optional `--pitch FILE.pitch.json` uses validated known-source
 data instead; an invalid supplied file fails rather than falling back to
 estimation. Read the [pitch guide](docs/pitch-input.md) for settings and limitations.
 
-The artwork is always circular. A faint light-gray (`#e0e0e0`), 1 px dotted
+The artwork is always circular. A light-gray (`#c8c8c8`), 1 px dotted
 nominal reference circle is enabled by default beneath the artwork; it does
 not replace the word. Its thickness is independent of the artwork stroke.
 `--no-circle` hides it, and `--circle` restores it when overriding configuration.

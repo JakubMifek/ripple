@@ -93,7 +93,7 @@ class FixtureCase(unittest.TestCase):
 
     def assert_reference_circle(self, element):
         self.assertEqual(element.get("data-role"), "reference-circle")
-        self.assertEqual(element.get("stroke"), "#e0e0e0")
+        self.assertEqual(element.get("stroke"), "#c8c8c8")
         self.assertEqual(element.get("stroke-width"), "1")
         self.assertEqual(element.get("stroke-dasharray"), "1 5")
         self.assertEqual(element.get("stroke-linecap"), "round")
@@ -1193,7 +1193,7 @@ class InterfaceTests(FixtureCase):
     def test_merge_reference_is_once_below_artwork_and_keeps_its_style(self):
         inputs = self.work / "merge-inputs"
         inputs.mkdir()
-        self.settings["render"].update(circle=True, color="#e0e0e0")
+        self.settings["render"].update(circle=True, color="#c8c8c8")
         circular = render_file(self.wav, self.settings)[1]
         for name in ("a.svg", "b.svg"):
             (inputs / name).write_text(circular)
@@ -1205,7 +1205,7 @@ class InterfaceTests(FixtureCase):
         for element in elements[1:]:
             self.assertIsNone(element.get("data-role"))
             self.assertIsNone(element.get("stroke-dasharray"))
-            self.assertEqual(element.get("stroke"), "#e0e0e0")
+            self.assertEqual(element.get("stroke"), "#c8c8c8")
             self.assertEqual(element.get("stroke-width"), "3")
         np.testing.assert_allclose(sample_path((self.work / "merged.svg").read_text()),
                                    sample_path(circular) * 2, atol=1e-8)
