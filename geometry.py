@@ -15,7 +15,14 @@ def periodic_coefficients(profile, detail, roundness):
     coefficients *= np.exp(-roundness * (k / 3) ** 2)
     bound = 2 * np.abs(coefficients[1:]).sum()
     if bound > 1:
-        coefficients /= bound
+        count = max(1024, 32 * (len(coefficients) - 1))
+        theta = np.arange(count) * (2 * np.pi / count)
+        values, _ = evaluate_profile(coefficients, theta)
+        # Between samples, the profile can change by at most slope_bound * pi/count.
+        slope_bound = 2 * np.sum(k * np.abs(coefficients))
+        bound = min(bound, np.max(np.abs(values)) + slope_bound * np.pi / count)
+        if bound > 1:
+            coefficients /= bound
     return coefficients
 
 

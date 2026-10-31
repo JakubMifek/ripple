@@ -111,13 +111,13 @@ def diagnostic_svg(audio, render, profile, waveform, envelopes):
 
 def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None,
            height=None, fitting=None, color=None, circle=None, *,
-           algorithm=None, settings=None, pitch_data=None) -> tuple[str, str]:
+           algorithm=None, settings=None, pitch_data=None, baseline_gain=None) -> tuple[str, str]:
     """Shared preprocessing and periodic geometry, independent of export dimensions."""
     if settings is None:
         settings = load_config(overrides={
             "smoothness": smoothness, "detail": poly_degree, "max_width": max_width,
             "height": height, "fitting": fitting, "color": color, "circle": circle,
-            "algorithm": algorithm})
+            "algorithm": algorithm, "baseline_gain": baseline_gain})
     else:
         validate_config(settings)
     render = settings["render"]
@@ -134,6 +134,7 @@ def ripple(wf: wave.Wave_read, smoothness=None, poly_degree=None, max_width=None
         waveform, envelopes = audio.samples, [
             list(zip(features["time"], features["energy"])),
             list(zip(features["time"], features["timbre"]))]
-    coefficients = periodic_coefficients(profile, render["detail"], render["roundness"])
+    gain = render["baseline_gain"] if render["algorithm"] == "baseline" else 1
+    coefficients = periodic_coefficients(profile * gain, render["detail"], render["roundness"])
     return (diagnostic_svg(audio, render, profile, waveform, envelopes),
             circular_svg(coefficients, render))

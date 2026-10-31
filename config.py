@@ -10,7 +10,7 @@ ALGORITHMS = ("baseline", "energy", "energy-timbre", "energy-pitch")
 DEFAULT_CONFIG = Path(__file__).with_name("ripple.toml")
 SCHEMA = {
     "render": {"algorithm", "max_width", "height", "color", "stroke_width", "circle",
-               "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness"},
+               "detail", "deformation", "nominal_radius", "roundness", "points", "fitting", "smoothness", "baseline_gain"},
     "preprocess": {"trim_db", "trim_padding_ms", "normalize_peak"},
     "features": {"window_ms", "hop_ms", "compression", "energy_weight", "timbre_weight",
                  "pitch_weight", "bands_hz", "band_weights", "pitch_reference_hz",
@@ -86,6 +86,7 @@ def validate_config(settings):
         raise ValueError("points must be at least 8 * detail.")
     number(r, "stroke_width", 0.01, 1000)
     number(r, "smoothness", 0, 1)
+    number(r, "baseline_gain", 0, 64)
     number(r, "roundness", 0, 1)
     number(r, "deformation", 0, 0.35)
     number(r, "nominal_radius", 0.1, 0.45)
@@ -120,6 +121,7 @@ def add_render_arguments(parser):
     parser.add_argument("--algorithm", choices=ALGORITHMS)
     parser.add_argument("--mode", choices=["Ripple"], default="Ripple", help="Legacy mode name")
     parser.add_argument("--smoothness", type=float, help="Baseline cyclic signed-waveform smoothing, 0 to 1")
+    parser.add_argument("--baseline-gain", type=float, help="Fixed baseline profile contrast, 0 to 64; 1 preserves unscaled extraction")
     parser.add_argument("--poly-degree", "--detail", dest="detail", type=int, help="Fourier terms / baseline polynomial degree")
     parser.add_argument("--max-width", type=int, help="Diagnostic width; circular side is min(width, height)")
     parser.add_argument("--height", type=int)
@@ -134,4 +136,4 @@ def add_render_arguments(parser):
 def config_from_args(args):
     return load_config(args.config, {key: getattr(args, key, None) for key in (
         "algorithm", "smoothness", "detail", "max_width", "height", "fitting",
-        "color", "stroke_width", "deformation", "roundness", "circle")})
+        "color", "stroke_width", "deformation", "roundness", "circle", "baseline_gain")})

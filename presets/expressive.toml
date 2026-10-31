@@ -8,5 +8,5 @@ deformation = 0.24
 roundness = 0.15
 
 [features]
-energy_weight = 3.0
-timbre_weight = 2.0
+energy_weight = 3.3
+timbre_weight = 2.2

@@ -14,6 +14,7 @@ roundness = 0.65
 points = 512
 fitting = "fourier"
 smoothness = 0.3333
+baseline_gain = 16.0
 
 [preprocess]
 trim_db = -40.0

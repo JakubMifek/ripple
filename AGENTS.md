@@ -58,6 +58,9 @@ failed renderers; native PNG dimensions are checked when available.
 - Default algorithm is baseline. `--smoothness` is baseline-only; `--poly-degree`
   (alias `--detail`) controls fit detail. Polynomial fit is baseline-only and
   is projected to periodic geometry. New methods use Fourier profiles.
+- `--baseline-gain` is a fixed display gain before the shared geometry limiter,
+  not per-word normalization. It affects both baseline fits, not the energy
+  methods; baseline diagnostics retain the unscaled extracted profile.
 - Extraction is independent of export dimensions. Detail, deformation and
   roundness are separate. Do not stretch tiny residuals to full radial range.
 - Every word is a **closed, connected smooth loop on the SAME nominal

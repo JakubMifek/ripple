@@ -63,6 +63,7 @@ or the path specified with `--diagnostic`. It no longer writes shared
 `tmp.svg`: parallel conversions with distinct output stems are isolated.
 Parent directories must exist. Diagnostics contain the processed waveform,
 baseline envelopes or energy/band features, and the pre-periodic fitted profile.
+The baseline diagnostic profile is shown before its rendering gain.
 
 ## Configuration and artistic controls
 
@@ -93,7 +94,9 @@ polynomial degree. **Detail is separate from deformation and roundness**:
 `--deformation 0` gives a circle; `--roundness` attenuates high harmonics.
 `render.points` controls cubic approximation density (at least eight per
 harmonic). Profiles are bounded without stretching tiny residuals to full
-deformation. Analytic periodic derivatives give connected, matching tangents,
+deformation. The limiter checks angular samples with a conservative derivative
+margin, so harmonics are not unnecessarily reduced as if all their peaks aligned.
+Analytic periodic derivatives give connected, matching tangents,
 including the seam. Coordinates stay floating point and export dimensions do
 not influence extraction.
 
@@ -103,6 +106,14 @@ more distinct midpoints than the requested degree; Fourier baseline requires
 at least four and caps terms to available evidence. `--smoothness` controls
 only baseline's cyclic signed-waveform median, using the legacy perceptual
 scaling. New methods use millisecond windows and `roundness`, not this median.
+
+`--baseline-gain` (`render.baseline_gain`, default **16**, range 0 to 64) gives
+the much smaller signed-midpoint profile a fixed display gain before the common
+geometry limiter. Both baseline fits use it. It does not change extraction,
+normalize each recording to full contrast, or affect the energy methods.
+Use **1** for the previous unscaled baseline or **0** for a nominal circle.
+Tiny residuals stay tiny, but the gain can also emphasize recording artifacts;
+it is an artistic contrast control, not evidence of additional voice information.
 
 The `[preprocess]` table controls relative trim threshold, padding and peak
 normalization. A bare recording without leading/trailing room cannot retain
@@ -136,8 +147,9 @@ This uses the explicit [expressive preset](presets/expressive.toml), not the
 subtle project defaults. It reduces high-harmonic smoothing and increases
 deformation and feature weights, without normalizing each curve to fill its
 radial range. The same preset can be used for other recordings; it does not
-guarantee visible differences for every input. Baseline remains almost circular
-here because its signed-waveform midpoint profile contains little variation.
+guarantee visible differences for every input. Baseline uses the default fixed
+16x display gain so its signed-midpoint variation is visible without per-word
+min-max normalization.
 
 To reproduce it, use a new output directory:
 

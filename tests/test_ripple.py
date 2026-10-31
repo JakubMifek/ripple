@@ -89,13 +89,16 @@ class ConfigurationTests(FixtureCase):
         self.assertEqual(defaults["render"]["algorithm"], "baseline")
         self.assertEqual(defaults["render"]["max_width"], 16384)
         self.assertEqual(defaults["render"]["height"], 2048)
+        self.assertEqual(defaults["render"]["baseline_gain"], 16)
         config = self.work / "custom.toml"
-        config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\n')
-        _, args = parse_args([str(self.wav), "x.svg", "--config", str(config), "--poly-degree", "7", "--no-circle"])
+        config.write_text('version = 1\n[render]\ncolor = "blue"\ndetail = 5\ncircle = true\nbaseline_gain = 4\n')
+        _, args = parse_args([str(self.wav), "x.svg", "--config", str(config), "--poly-degree", "7",
+                              "--no-circle", "--baseline-gain", "8"])
         settings = config_from_args(args)
         self.assertEqual(settings["render"]["color"], "blue")
         self.assertEqual(settings["render"]["detail"], 7)
         self.assertFalse(settings["render"]["circle"])
+        self.assertEqual(settings["render"]["baseline_gain"], 8)
         self.assertEqual(settings["preprocess"], defaults["preprocess"])
 
     def test_unknown_invalid_and_method_restrictions(self):
@@ -109,6 +112,9 @@ class ConfigurationTests(FixtureCase):
             "version = 1\n[render]\npoints = 64\ndetail = 128",
             "version = 1\n[render]\nnominal_radius = 0.45\ndeformation = 0.35",
             "version = 1\n[render]\nsmoothness = -0.1",
+            "version = 1\n[render]\nbaseline_gain = -1",
+            "version = 1\n[render]\nbaseline_gain = 65",
+            "version = 1\n[render]\nbaseline_gain = nan",
         ]
         config = self.work / "bad.toml"
         for text in cases:
@@ -435,6 +441,47 @@ class GeometryTests(FixtureCase):
         radius = float(root.get("data-nominal-diameter")) / 2
         samples = [segment.point(t) for segment in path for t in (0, 0.25, 0.5, 0.75, 1)]
         np.testing.assert_allclose(np.abs(np.array(samples) - center), radius, atol=1e-7, rtol=0)
+
+    def test_limiter_preserves_in_bounds_profiles_and_bounds_between_samples(self):
+        theta = np.arange(4096) * 2 * np.pi / 4096
+        profile = 0.6 * np.cos(theta) + 0.5 * np.sin(2 * theta)
+        self.assertLess(np.max(np.abs(profile)), 1)
+        coefficients = periodic_coefficients(profile, 8, 0)
+        values, _ = evaluate_profile(coefficients, theta)
+        np.testing.assert_allclose(values, profile, atol=1e-12, rtol=0)
+        for detail in (8, 32, 128):
+            with self.subTest(detail=detail):
+                profile = 5 * np.cos(detail * theta + 0.13) + 2 * np.sin((detail - 1) * theta + 0.7)
+                coefficients = periodic_coefficients(profile, detail, 0)
+                # Offset from the limiter's angular grid to check the continuous bound.
+                between = (np.arange(16384) + 0.5) * 2 * np.pi / 16384
+                values, _ = evaluate_profile(coefficients, between)
+                self.assertLessEqual(np.max(np.abs(values)), 1 + 1e-12)
+
+    def test_baseline_gain_is_fixed_and_does_not_inflate_tiny_residuals(self):
+        theta = np.arange(2048) * 2 * np.pi / 2048
+        render = self.settings["render"]
+        audio = self.audio()
+        center, nominal = 128 + 128j, 102.4
+        with mock.patch("ripple.baseline_profile", return_value=(0.01 * np.cos(theta), audio.samples, [])):
+            deviations = {}
+            for gain in (0, 1, 16):
+                render["baseline_gain"] = gain
+                circular = render_file(self.wav, self.settings)[1]
+                # Segment anchors share angles; arc-length positions change with gain.
+                anchors = np.array([segment.start for segment in paths(circular)[-1]])
+                deviations[gain] = np.abs(anchors - center) - nominal
+            np.testing.assert_allclose(deviations[0], 0, atol=1e-7, rtol=0)
+            np.testing.assert_allclose(deviations[16], 16 * deviations[1], atol=1e-6, rtol=0)
+        with mock.patch("ripple.baseline_profile", return_value=(1e-9 * np.cos(theta), audio.samples, [])):
+            circular = render_file(self.wav, self.settings)[1]
+            self.assertLess(np.max(np.abs(np.abs(sample_path(circular) - center) - nominal)), 1e-6)
+        for method in ALGORITHMS[1:3]:
+            render["algorithm"] = method
+            render["baseline_gain"] = 0
+            first = render_file(self.wav, self.settings)[1]
+            render["baseline_gain"] = 64
+            self.assertEqual(first, render_file(self.wav, self.settings)[1])
 
     def test_legacy_poly_and_insufficient_extrema(self):
         self.settings["render"].update(fitting="poly", detail=4)
