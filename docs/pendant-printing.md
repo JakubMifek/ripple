@@ -1,11 +1,107 @@
 # Full-size silver-wire drafts: the final four names
 
-**Current drafts focus on 1.0 mm round wire at 45, 50, 55, 60, 65 and
-70 mm maximum outside body dimension.** The earlier 40 mm drafts remain
-available below for reference. These are forming and size-comparison guides,
-not a guarantee of strength or an assembly-ready jewelry specification.
+**The current five-page pack covers 35-80 mm in 5 mm steps, for both
+1.0 mm and 0.9 mm round wire.** Sizes mean maximum outside body dimension,
+including wire but excluding the bail. These are forming and size-comparison
+guides, not a guarantee of strength or an assembly-ready jewelry specification.
 
-## Larger sizes: 1.0 mm wire only
+## Compact five-page pack
+
+- [A4 print PDF](../output_samples/final-names-print-compact/print-A4.pdf)
+- [US Letter print PDF](../output_samples/final-names-print-compact/print-Letter.pdf)
+- [Editable SVG sheets and measurements](../output_samples/final-names-print-compact/)
+
+The page order is:
+
+1. **1.0 mm forming:** four named sections, each with all ten sizes nested.
+2. **1.0 mm comparison:** all ten complete compositions at actual size.
+3. **0.9 mm forming:** the same four-section nested layout.
+4. **0.9 mm comparison:** all ten compositions at actual size.
+5. **Overlay alignment:** colored cumulative panels at 60 mm / 1.0 mm,
+   explaining how to register the four names.
+
+Each nested contour is numbered with the **finished composition's size**,
+not the individual loop's width or height. Choose the same number and wire
+diameter for all four names. Gray bands show actual wire thickness; follow
+their dashed centers. The small white number windows are labels, not gaps
+to cut in the wire. Center crosses and `TOP` marks preserve registration.
+The comparison pages pack sizes out of numerical order to save paper;
+read each label.
+
+The fifth page demonstrates alignment, **not an over/under or soldering
+sequence**. For other sizes or 0.9 mm wire, use the matching comparison
+silhouette rather than the 60 mm / 1.0 mm example.
+
+All original cubic curves remain intact. One common scale is used for the
+four names:
+
+```text
+scale = (maximum outside body size - wire diameter) / longest combined centerline span
+printed point = (source point - shared source center) * scale + sheet location
+```
+
+The reference circle is omitted. Physical stroke width stays fixed while
+the curves grow; the two wire versions use slightly different centerline
+scales to achieve the same outside body size. Projected lengths for every
+size/wire combination are in
+[`dimensions.json`](../output_samples/final-names-print-compact/dimensions.json).
+They exclude closure, crossing, trimming, spare-wire and bail allowances.
+Do not treat them as ready-to-cut lengths.
+
+## Generate and check another pack
+
+These are repeatable scripts, not one-off generation commands. Activate the
+project virtual environment and install the optional print dependencies:
+
+```bash
+python3 -m pip install -r requirements-print.txt
+python3 src/print_templates.py --help
+python3 src/check_print_templates.py --help
+mkdir -p artwork
+python3 src/print_templates.py \
+  output_samples/final-names-composition/energy-timbre-pitch/overlay.svg \
+  --output-dir artwork/print-pack
+python3 src/check_print_templates.py artwork/print-pack \
+  --source output_samples/final-names-composition/energy-timbre-pitch/overlay.svg \
+  --require-pdf --preview-dir artwork/print-previews
+```
+
+Both output directories must be new, with existing parents. The input defaults
+to the final four-name overlay above. Use an unmodified four-word Ripple
+overlay with distinct names, not a labeled SVG, diagnostic or print sheet.
+The strict artwork reader rejects unsupported transforms/CSS and retains
+the original center/orientation; this does not use or require Blender.
+
+The generator writes five A4 SVGs, A4 and Letter PDFs, and a measurement
+manifest. It stages the entire pack before publishing the new directory;
+missing/failed PDF export is an error, never a partial success.
+PDF export requires **native Cairo** as well as Python CairoSVG and PyMuPDF.
+On Debian/Ubuntu, the native library is provided by `libcairo2`.
+`--svg-only` skips PDF export and its optional dependencies. CLI help also
+works without them. Core audio dependencies remain unchanged.
+
+To select fewer sizes or one wire diameter:
+
+```bash
+python3 src/print_templates.py --output-dir artwork/selected-print-pack \
+  --sizes 45 50 55 60 65 70 --wire-mm 1.0
+python3 src/check_print_templates.py artwork/selected-print-pack --require-pdf
+```
+
+One wire diameter produces three pages; two produce five, in the supplied
+wire order. Body sizes must be whole millimeters between 20 and 80, at least
+5 mm apart, with at most ten sizes. The compact layout rejects combinations
+that cannot fit at 1:1 instead of quietly shrinking them; very broad or
+off-center source curves may require fewer/smaller sizes.
+
+The checker verifies source hashes, all source cubic controls, common scale,
+wire diameters, size labels, measurements, page order, calibration gauges and
+PDF vector coordinates/print margins. `--require-pdf` ensures SVG-only output
+cannot count as a successful PDF check. `--preview-dir` renders both PDF packs
+to PNGs for visual inspection; **print the PDFs, not these inspection images**.
+Numerical checks cannot validate your printer, wire spring-back or joint design.
+
+## Earlier 45-70 mm packs: 1.0 mm wire only (archive)
 
 Start with the **one-page, actual-size comparison** showing all six options:
 

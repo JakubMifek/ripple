@@ -32,6 +32,9 @@ at the repository root. Execute CLIs as `python3 src/main.py`, not as a package.
 - `src/pendant.py`, `src/pendant_scene.py`: optional local Blender/Cycles gold
   pendant renderer. The wrapper uses normal Python; the worker uses Blender's
   Python. Read `docs/pendant-guide.md`. Do not add Blender to core dependencies.
+- `src/print_templates.py`, `src/check_print_templates.py`: physical-size
+  four-loop forming/print packs and source-linked SVG/PDF validation.
+  Read `docs/pendant-printing.md`; optional PDF tools use `requirements-print.txt`.
 - `names.sh`: five-method comparison of four example names into a new
   explicit output directory; no parallel/shared-diagnostic race.
 - `tests/test_ripple.py`, `.github/workflows/tests.yml`: unittest and CI.
@@ -134,6 +137,14 @@ failed renderers; native PNG dimensions are checked when available.
   them incorrectly. Keep real disconnected bodies and failed/missing Cycles
   output as errors; never substitute a flat image. Deliver a visual concept,
   not a claim of manufacturability. New output directories protect existing files.
+- Print body sizes include wire: `(maximum_mm - wire_mm) / longest_combined_span`.
+  Preserve every source cubic and one shared scale/center; never resize a name
+  independently or shrink a page to fit. Keep wire thickness constant and omit
+  the reference circle. SVG coordinates are millimeters; A4/Letter exports change
+  page bounds, not artwork scale. Verify real PDF curves and both calibration
+  gauges with `check_print_templates.py --require-pdf`; no raster substitutes.
+  Print/preview directories must be new. Nested labels identify assembly size,
+  not individual loop size. Alignment panels are not a solder/over-under plan.
 
 ## Changes and checks
 

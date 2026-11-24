@@ -1,0 +1,334 @@
+{
+  "version": 1,
+  "source_name": "overlay.svg",
+  "source_sha256": "d1e30bcfb935970b45597ae8304ecc62984d79e78120f5ea8df7bbfff99c1e52",
+  "source_metadata": {
+    "width": "1024",
+    "height": "1024",
+    "viewBox": "0 0 1024 1024",
+    "data-algorithm": "energy-timbre-pitch",
+    "data-nominal-diameter": "819.2",
+    "data-center": "512.0,512.0",
+    "data-orientation": "recording",
+    "data-pitch-source": "estimated",
+    "data-pitch-estimator": "Praat 6.1.38 autocorrelation (Parselmouth 0.4.7)"
+  },
+  "sizes_mm": [
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80
+  ],
+  "wire_mm": [
+    1.0,
+    0.9
+  ],
+  "size_definition": "Maximum outside BODY dimension including wire, excluding bail and solder",
+  "coordinates": "Source-center-relative, divided by source nominal diameter; SVG Y direction preserved",
+  "normalized_bounds": [
+    -0.5432383226559028,
+    0.5829363079572889,
+    -0.6179023717055668,
+    0.5923022002868163
+  ],
+  "variants": [
+    {
+      "maximum_body_mm": 35,
+      "wire_mm": 1.0,
+      "width_mm": 32.63922722404779,
+      "height_mm": 35.0,
+      "nominal_diameter_mm": 28.094423692372224,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 90.0868630505689,
+        "Eliska Final": 91.78260988811827,
+        "Jiri Final": 90.27438862078398,
+        "Jitka Final": 92.85594252940601
+      }
+    },
+    {
+      "maximum_body_mm": 40,
+      "wire_mm": 1.0,
+      "width_mm": 37.292054756995995,
+      "height_mm": 40.0,
+      "nominal_diameter_mm": 32.225956588309316,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 103.33493114624079,
+        "Eliska Final": 105.2800525187239,
+        "Jiri Final": 103.55003400619339,
+        "Jitka Final": 106.51122819549512
+      }
+    },
+    {
+      "maximum_body_mm": 45,
+      "wire_mm": 1.0,
+      "width_mm": 41.944882289944196,
+      "height_mm": 45.0,
+      "nominal_diameter_mm": 36.35748948424641,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 116.58299924191269,
+        "Eliska Final": 118.77749514932954,
+        "Jiri Final": 116.8256793916028,
+        "Jitka Final": 120.16651386158424
+      }
+    },
+    {
+      "maximum_body_mm": 50,
+      "wire_mm": 1.0,
+      "width_mm": 46.597709822892405,
+      "height_mm": 50.0,
+      "nominal_diameter_mm": 40.4890223801835,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 129.83106733758459,
+        "Eliska Final": 132.27493777993516,
+        "Jiri Final": 130.1013247770122,
+        "Jitka Final": 133.82179952767336
+      }
+    },
+    {
+      "maximum_body_mm": 55,
+      "wire_mm": 1.0,
+      "width_mm": 51.250537355840606,
+      "height_mm": 55.0,
+      "nominal_diameter_mm": 44.62055527612059,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 143.07913543325648,
+        "Eliska Final": 145.7723804105408,
+        "Jiri Final": 143.37697016242163,
+        "Jitka Final": 147.47708519376246
+      }
+    },
+    {
+      "maximum_body_mm": 60,
+      "wire_mm": 1.0,
+      "width_mm": 55.903364888788815,
+      "height_mm": 60.0,
+      "nominal_diameter_mm": 48.75208817205768,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 156.32720352892838,
+        "Eliska Final": 159.26982304114642,
+        "Jiri Final": 156.65261554783103,
+        "Jitka Final": 161.1323708598516
+      }
+    },
+    {
+      "maximum_body_mm": 65,
+      "wire_mm": 1.0,
+      "width_mm": 60.556192421737016,
+      "height_mm": 65.0,
+      "nominal_diameter_mm": 52.883621067994774,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 169.57527162460028,
+        "Eliska Final": 172.76726567175206,
+        "Jiri Final": 169.92826093324044,
+        "Jitka Final": 174.7876565259407
+      }
+    },
+    {
+      "maximum_body_mm": 70,
+      "wire_mm": 1.0,
+      "width_mm": 65.20901995468522,
+      "height_mm": 70.0,
+      "nominal_diameter_mm": 57.015153963931866,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 182.82333972027217,
+        "Eliska Final": 186.2647083023577,
+        "Jiri Final": 183.20390631864984,
+        "Jitka Final": 188.44294219202982
+      }
+    },
+    {
+      "maximum_body_mm": 75,
+      "wire_mm": 1.0,
+      "width_mm": 69.86184748763343,
+      "height_mm": 75.0,
+      "nominal_diameter_mm": 61.14668685986896,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 196.07140781594407,
+        "Eliska Final": 199.76215093296332,
+        "Jiri Final": 196.47955170405925,
+        "Jitka Final": 202.09822785811895
+      }
+    },
+    {
+      "maximum_body_mm": 80,
+      "wire_mm": 1.0,
+      "width_mm": 74.51467502058163,
+      "height_mm": 80.0,
+      "nominal_diameter_mm": 65.27821975580605,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 209.31947591161597,
+        "Eliska Final": 213.25959356356893,
+        "Jiri Final": 209.75519708946865,
+        "Jitka Final": 215.75351352420805
+      }
+    },
+    {
+      "maximum_body_mm": 35,
+      "wire_mm": 0.9,
+      "width_mm": 32.63228377470676,
+      "height_mm": 35.0,
+      "nominal_diameter_mm": 28.177054350290966,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 90.35182441248233,
+        "Eliska Final": 92.05255874073039,
+        "Jiri Final": 90.53990152849217,
+        "Jitka Final": 93.12904824272778
+      }
+    },
+    {
+      "maximum_body_mm": 40,
+      "wire_mm": 0.9,
+      "width_mm": 37.28511130765496,
+      "height_mm": 40.0,
+      "nominal_diameter_mm": 32.30858724622806,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 103.59989250815423,
+        "Eliska Final": 105.55000137133602,
+        "Jiri Final": 103.81554691390158,
+        "Jitka Final": 106.7843339088169
+      }
+    },
+    {
+      "maximum_body_mm": 45,
+      "wire_mm": 0.9,
+      "width_mm": 41.93793884060316,
+      "height_mm": 45.0,
+      "nominal_diameter_mm": 36.44012014216515,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 116.84796060382612,
+        "Eliska Final": 119.04744400194166,
+        "Jiri Final": 117.09119229931099,
+        "Jitka Final": 120.43961957490602
+      }
+    },
+    {
+      "maximum_body_mm": 50,
+      "wire_mm": 0.9,
+      "width_mm": 46.59076637355137,
+      "height_mm": 50.0,
+      "nominal_diameter_mm": 40.57165303810224,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 130.09602869949802,
+        "Eliska Final": 132.54488663254727,
+        "Jiri Final": 130.3668376847204,
+        "Jitka Final": 134.09490524099513
+      }
+    },
+    {
+      "maximum_body_mm": 55,
+      "wire_mm": 0.9,
+      "width_mm": 51.24359390649957,
+      "height_mm": 55.0,
+      "nominal_diameter_mm": 44.70318593403933,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 143.34409679516992,
+        "Eliska Final": 146.0423292631529,
+        "Jiri Final": 143.6424830701298,
+        "Jitka Final": 147.75019090708426
+      }
+    },
+    {
+      "maximum_body_mm": 60,
+      "wire_mm": 0.9,
+      "width_mm": 55.89642143944777,
+      "height_mm": 60.0,
+      "nominal_diameter_mm": 48.834718829976424,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 156.59216489084181,
+        "Eliska Final": 159.53977189375854,
+        "Jiri Final": 156.9181284555392,
+        "Jitka Final": 161.40547657317336
+      }
+    },
+    {
+      "maximum_body_mm": 65,
+      "wire_mm": 0.9,
+      "width_mm": 60.54924897239597,
+      "height_mm": 65.0,
+      "nominal_diameter_mm": 52.96625172591351,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 169.84023298651368,
+        "Eliska Final": 173.03721452436415,
+        "Jiri Final": 170.1937738409486,
+        "Jitka Final": 175.06076223926246
+      }
+    },
+    {
+      "maximum_body_mm": 70,
+      "wire_mm": 0.9,
+      "width_mm": 65.20207650534418,
+      "height_mm": 70.0,
+      "nominal_diameter_mm": 57.0977846218506,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 183.08830108218558,
+        "Eliska Final": 186.53465715496978,
+        "Jiri Final": 183.469419226358,
+        "Jitka Final": 188.7160479053516
+      }
+    },
+    {
+      "maximum_body_mm": 75,
+      "wire_mm": 0.9,
+      "width_mm": 69.85490403829239,
+      "height_mm": 75.0,
+      "nominal_diameter_mm": 61.22931751778769,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 196.33636917785748,
+        "Eliska Final": 200.0320997855754,
+        "Jiri Final": 196.74506461176742,
+        "Jitka Final": 202.3713335714407
+      }
+    },
+    {
+      "maximum_body_mm": 80,
+      "wire_mm": 0.9,
+      "width_mm": 74.5077315712406,
+      "height_mm": 80.0,
+      "nominal_diameter_mm": 65.36085041372479,
+      "projected_lengths_mm_no_allowance": {
+        "Denisa Final": 209.5844372735294,
+        "Eliska Final": 213.52954241618104,
+        "Jiri Final": 210.02070999717685,
+        "Jitka Final": 216.02661923752984
+      }
+    }
+  ],
+  "notice": "No joint, over-under, closure, bail or spare-wire allowance is designed here.",
+  "pages": [
+    {
+      "file": "01-forming-1mm.svg",
+      "kind": "forming",
+      "wire_mm": 1.0
+    },
+    {
+      "file": "02-comparison-1mm.svg",
+      "kind": "comparison",
+      "wire_mm": 1.0
+    },
+    {
+      "file": "03-forming-0.9mm.svg",
+      "kind": "forming",
+      "wire_mm": 0.9
+    },
+    {
+      "file": "04-comparison-0.9mm.svg",
+      "kind": "comparison",
+      "wire_mm": 0.9
+    },
+    {
+      "file": "05-overlay-1mm.svg",
+      "kind": "overlay",
+      "wire_mm": 1.0
+    }
+  ],
+  "pdf_files": [
+    "print-A4.pdf",
+    "print-Letter.pdf"
+  ]
+}

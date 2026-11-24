@@ -57,9 +57,12 @@ and [gold pendant render](output_samples/final-names-pendant/pendant.png).
 Use the plain SVG as the pendant renderer's input.
 
 For a hand-formed silver version, see the [calibrated print drafts and sizing
-guide](docs/pendant-printing.md): **1.0 mm wire at 45, 50, 55, 60, 65 and 70 mm**
-maximum body size, with a true-size comparison and individual forming curves.
-Earlier 40 mm / 0.9 mm drafts remain available for reference.
+guide](docs/pendant-printing.md): a **five-page pack covering 35-80 mm in 5 mm
+steps, for 1.0 mm and 0.9 mm wire**, with nested forming curves, true-size
+comparisons and colored overlay alignment.
+Reusable `src/print_templates.py` and `src/check_print_templates.py` generate
+and check new packs; optional PDF dependencies are in `requirements-print.txt`.
+Print at Actual size / 100% and measure the calibration marks.
 
 ## One recording
 
