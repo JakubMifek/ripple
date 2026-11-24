@@ -1,0 +1,123 @@
+{
+  "source": "output_samples/final-names-composition/energy-timbre-pitch/overlay.svg",
+  "source_sha256": "d1e30bcfb935970b45597ae8304ecc62984d79e78120f5ea8df7bbfff99c1e52",
+  "size_definition": "Maximum overall outside body dimension INCLUDING 1.0 mm wire; bail and solder fillets excluded",
+  "source_center": [
+    512.0,
+    512.0
+  ],
+  "source_centerline_bounds": [
+    66.97916608028444,
+    989.5414234785884,
+    5.814377098789676,
+    997.2139624749567
+  ],
+  "source_nominal_diameter": 819.2,
+  "mapping": "(source_point-source_center)*((maximum_body_mm-1.0)/max_bbox_span)+sheet_origin; shared by every word",
+  "notice": "All source curves and orientations unchanged; physical thickness and joint layout are not engineered.",
+  "length_notice": "Projected centerline lengths exclude closures, over-under bends, trimming, bail and all spare.",
+  "variants": [
+    {
+      "maximum_body_mm": 45,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 41.94488228994292,
+      "outside_body_height_mm": 45,
+      "scale_mm_per_svg_unit": 0.044381701030573935,
+      "nominal_diameter_mm": 36.357489484246166,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 116.58299924191192,
+        "Eliska Final": 118.77749514932876,
+        "Jiri Final": 116.82567939160202,
+        "Jitka Final": 120.16651386158344
+      },
+      "total_wire_length_mm_no_allowance": 472.35268764442617
+    },
+    {
+      "maximum_body_mm": 50,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 46.59770982289098,
+      "outside_body_height_mm": 50,
+      "scale_mm_per_svg_unit": 0.049425076147684606,
+      "nominal_diameter_mm": 40.48902238018323,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 129.83106733758373,
+        "Eliska Final": 132.2749377799343,
+        "Jiri Final": 130.10132477701134,
+        "Jitka Final": 133.82179952767245
+      },
+      "total_wire_length_mm_no_allowance": 526.0291294222018
+    },
+    {
+      "maximum_body_mm": 55,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 51.250537355839036,
+      "outside_body_height_mm": 55,
+      "scale_mm_per_svg_unit": 0.05446845126479528,
+      "nominal_diameter_mm": 44.62055527612029,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 143.07913543325552,
+        "Eliska Final": 145.77238041053982,
+        "Jiri Final": 143.37697016242066,
+        "Jitka Final": 147.47708519376147
+      },
+      "total_wire_length_mm_no_allowance": 579.7055711999775
+    },
+    {
+      "maximum_body_mm": 60,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 55.903364888787095,
+      "outside_body_height_mm": 60,
+      "scale_mm_per_svg_unit": 0.059511826381905955,
+      "nominal_diameter_mm": 48.75208817205736,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 156.32720352892736,
+        "Eliska Final": 159.26982304114537,
+        "Jiri Final": 156.65261554782998,
+        "Jitka Final": 161.1323708598505
+      },
+      "total_wire_length_mm_no_allowance": 633.3820129777532
+    },
+    {
+      "maximum_body_mm": 65,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 60.556192421735155,
+      "outside_body_height_mm": 65,
+      "scale_mm_per_svg_unit": 0.06455520149901663,
+      "nominal_diameter_mm": 52.883621067994426,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 169.57527162459914,
+        "Eliska Final": 172.76726567175092,
+        "Jiri Final": 169.9282609332393,
+        "Jitka Final": 174.78765652593952
+      },
+      "total_wire_length_mm_no_allowance": 687.0584547555288
+    },
+    {
+      "maximum_body_mm": 70,
+      "wire_diameter_mm": 1,
+      "outside_body_width_mm": 65.20901995468321,
+      "outside_body_height_mm": 70,
+      "scale_mm_per_svg_unit": 0.0695985766161273,
+      "nominal_diameter_mm": 57.01515396393148,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 182.82333972027095,
+        "Eliska Final": 186.26470830235644,
+        "Jiri Final": 183.2039063186486,
+        "Jitka Final": 188.44294219202854
+      },
+      "total_wire_length_mm_no_allowance": 740.7348965333045
+    }
+  ],
+  "print": {
+    "A4_mm": [
+      210,
+      297
+    ],
+    "Letter_mm": [
+      215.9,
+      279.4
+    ],
+    "scale": "100% / Actual size",
+    "calibration": "50 mm tick-center span and 10 mm square line-center span on every page"
+  }
+}

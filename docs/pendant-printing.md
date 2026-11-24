@@ -1,11 +1,66 @@
 # Full-size silver-wire drafts: the final four names
 
-**Recommendation: start with a 40 mm maximum body dimension and 1.0 mm
-round sterling-silver wire, first as an inexpensive-wire prototype.**
-That is a reasonable starting size, not a guarantee of strength or an
-assembly-ready jewelry specification.
+**Current drafts focus on 1.0 mm round wire at 45, 50, 55, 60, 65 and
+70 mm maximum outside body dimension.** The earlier 40 mm drafts remain
+available below for reference. These are forming and size-comparison guides,
+not a guarantee of strength or an assembly-ready jewelry specification.
 
-## Download and print
+## Larger sizes: 1.0 mm wire only
+
+Start with the **one-page, actual-size comparison** showing all six options:
+
+- [A4 comparison PDF](../output_samples/final-names-print-1mm-sizes/comparison-A4.pdf)
+- [US Letter comparison PDF](../output_samples/final-names-print-1mm-sizes/comparison-Letter.pdf)
+- [Editable comparison SVG](../output_samples/final-names-print-1mm-sizes/size-comparison.svg)
+
+Once you select a size, the **six-page forming-guide pack** has one page per
+size, in ascending order, with all four individual name curves and their
+projected wire lengths:
+
+- [A4 forming guides](../output_samples/final-names-print-1mm-sizes/forming-guides-A4.pdf)
+- [US Letter forming guides](../output_samples/final-names-print-1mm-sizes/forming-guides-Letter.pdf)
+
+**Every drawing in these new packs is 1:1, and every wire band is exactly
+1.0 mm wide.** The curves enlarge together, but wire diameter does not increase.
+The dimensions below include the wire and exclude the bail, solder fillets,
+chain and other hardware. As the design is taller than wide, the stated
+maximum dimension is its outside body height.
+
+| Maximum body size | Outside width x height | Total projected wire, before any allowance | Individual SVG |
+|---|---|---:|---|
+| 45 mm | 41.94 x 45.00 mm | 472.4 mm | [45 mm guides](../output_samples/final-names-print-1mm-sizes/forming-45mm.svg) |
+| 50 mm | 46.60 x 50.00 mm | 526.0 mm | [50 mm guides](../output_samples/final-names-print-1mm-sizes/forming-50mm.svg) |
+| 55 mm | 51.25 x 55.00 mm | 579.7 mm | [55 mm guides](../output_samples/final-names-print-1mm-sizes/forming-55mm.svg) |
+| 60 mm | 55.90 x 60.00 mm | 633.4 mm | [60 mm guides](../output_samples/final-names-print-1mm-sizes/forming-60mm.svg) |
+| 65 mm | 60.56 x 65.00 mm | 687.1 mm | [65 mm guides](../output_samples/final-names-print-1mm-sizes/forming-65mm.svg) |
+| 70 mm | 65.21 x 70.00 mm | 740.7 mm | [70 mm guides](../output_samples/final-names-print-1mm-sizes/forming-70mm.svg) |
+
+These are nominal mathematical dimensions, not fabrication tolerances.
+Lengths exclude all closure, over/under, trimming and bail allowances:
+**do not reuse the earlier 120 mm-per-loop or 0.6 m stock suggestions for
+these larger sizes**. Use the individual lengths on the selected sheet and
+add spare appropriate to your joint construction and practice needs.
+
+All original curves, recording orientations and their shared scale remain
+intact. The formula is `(maximum body size - 1 mm) / longest combined
+source-centerline span`. Full measurements and the source hash are in
+[`dimensions.json`](../output_samples/final-names-print-1mm-sizes/dimensions.json).
+Do not mix individual forming guides from different size pages.
+
+Increasing size gives more open space relative to the same 1 mm wire, but
+does not remove the 22 crossings. Longer unsupported spans can also be more
+flexible; bigger is not automatically easier to build or stronger. Compare
+the silhouettes on paper and prototype the selected size before committing
+to silver. The soldered-joint limitations below still apply.
+
+## Print settings for every pack
+
+Use the matching paper size, **Actual size / 100%, one page per sheet**.
+Disable Fit, Shrink and borderless enlargement. Measure the **50 mm line**
+between end-tick centers and the **10 x 10 mm square** between line centers
+in both axes before forming wire. These calibration marks are on every page.
+
+## Earlier 40 mm drafts (archive)
 
 - [A4 print pack](../output_samples/final-names-print/print-A4.pdf)
 - [US Letter print pack](../output_samples/final-names-print/print-Letter.pdf)
