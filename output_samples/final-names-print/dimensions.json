@@ -1,0 +1,286 @@
+{
+  "source": "output_samples/final-names-composition/energy-timbre-pitch/overlay.svg",
+  "source_sha256": "d1e30bcfb935970b45597ae8304ecc62984d79e78120f5ea8df7bbfff99c1e52",
+  "size_definition": "Maximum of overall outside body width and height, INCLUDING round-wire diameter; bail excluded",
+  "target_maximum_mm": 40,
+  "source_center": [
+    512.0,
+    512.0
+  ],
+  "source_nominal_diameter": 819.2,
+  "source_centerline_bounds": [
+    66.97916608028444,
+    989.5414234785884,
+    5.814377098789676,
+    997.2139624749567
+  ],
+  "mapping": "(source_point - source_center) * ((target_max_mm - wire_mm) / max_bbox_span); same scale for EVERY word",
+  "dimensions_are_nominal": "Fabrication, finishing and printing tolerances are not modelled.",
+  "variants": [
+    {
+      "wire_diameter_mm": 0.9,
+      "scale_mm_per_svg_unit": 0.03943919341580547,
+      "nominal_diameter_mm": 32.308587246227845,
+      "outside_body_width_mm": 37.28511130765382,
+      "outside_body_height_mm": 40.0,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 103.59989250815354,
+        "Eliska Final": 105.55000137133533,
+        "Jiri Final": 103.81554691390087,
+        "Jitka Final": 106.78433390881618
+      },
+      "total_wire_length_mm_no_allowance": 419.7497747022059,
+      "approx_clear_center_circle_mm": 23.743211659062975
+    },
+    {
+      "wire_diameter_mm": 1.0,
+      "scale_mm_per_svg_unit": 0.03933832591346326,
+      "nominal_diameter_mm": 32.2259565883091,
+      "outside_body_width_mm": 37.29205475699486,
+      "outside_body_height_mm": 40.0,
+      "wire_lengths_mm_no_allowance": {
+        "Denisa Final": 103.33493114624011,
+        "Eliska Final": 105.28005251872321,
+        "Jiri Final": 103.55003400619269,
+        "Jitka Final": 106.51122819549441
+      },
+      "total_wire_length_mm_no_allowance": 418.67624586665045,
+      "approx_clear_center_circle_mm": 23.580185542287875
+    }
+  ],
+  "crossings": [
+    {
+      "words": [
+        "Denisa Final",
+        "Eliska Final"
+      ],
+      "xy": [
+        386.3171562641113,
+        863.1672659194824
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Eliska Final"
+      ],
+      "xy": [
+        671.8858695808519,
+        62.5151384876917
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Eliska Final"
+      ],
+      "xy": [
+        930.8181258517867,
+        531.9383383531575
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Eliska Final"
+      ],
+      "xy": [
+        801.2297747174275,
+        741.9977620931411
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        304.80240900795064,
+        130.22907557378096
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        733.840843300467,
+        131.87569286914768
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        839.7664454184593,
+        230.23847375823522
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        610.3215877376718,
+        832.7194413438095
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        193.7832818552075,
+        724.7823851665638
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        226.1478237377844,
+        181.76277069684613
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        504.39297000686184,
+        7.771870137580608
+      ]
+    },
+    {
+      "words": [
+        "Denisa Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        811.1795614730181,
+        734.871625425132
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        327.14544146935435,
+        122.66485117346991
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jiri Final"
+      ],
+      "xy": [
+        431.94190395514846,
+        896.383556176801
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        171.11482088018013,
+        569.0875253583472
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        195.78205433099632,
+        288.78084286589575
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        602.0036926594446,
+        50.41483922030879
+      ]
+    },
+    {
+      "words": [
+        "Eliska Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        815.0434224164457,
+        663.9273556931469
+      ]
+    },
+    {
+      "words": [
+        "Jiri Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        239.9408980730416,
+        828.0308665193169
+      ]
+    },
+    {
+      "words": [
+        "Jiri Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        251.8999002064325,
+        141.81123561425818
+      ]
+    },
+    {
+      "words": [
+        "Jiri Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        642.2816464550828,
+        88.15941332041672
+      ]
+    },
+    {
+      "words": [
+        "Jiri Final",
+        "Jitka Final"
+      ],
+      "xy": [
+        829.5663246402535,
+        604.6041904463668
+      ]
+    }
+  ],
+  "crossing_notice": "22 geometric crossings, NOT a solder-joint, notch, over-under, or assembly schedule",
+  "print": {
+    "A4_mm": [
+      210,
+      297
+    ],
+    "Letter_mm": [
+      215.9,
+      279.4
+    ],
+    "settings": "Actual size / 100%, one page per sheet, disable Fit and borderless enlargement",
+    "calibration": "50 mm end-tick-center spacing and 10 mm square line-center spacing, both axes"
+  }
+}

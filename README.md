@@ -56,6 +56,10 @@ Final recordings of **Denisa, Eliska, Jiri and Jitka**:
 and [gold pendant render](output_samples/final-names-pendant/pendant.png).
 Use the plain SVG as the pendant renderer's input.
 
+For a hand-formed silver version, see the [calibrated print drafts and sizing
+guide](docs/pendant-printing.md): 0.9 mm and 1.0 mm wire at 40 mm maximum body
+size, individual forming curves, and a 35/40/45 mm comparison.
+
 ## One recording
 
 Single conversions default to **energy-timbre-pitch**, combining energy,
