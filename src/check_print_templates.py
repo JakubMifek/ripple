@@ -84,11 +84,10 @@ def check_svg(root, words, bounds, manifest, page_info):
         require(all(len(origins) == 1 for origins in forming_origins.values()),
                 "Nested sizes must share a source-center origin.")
         require(sorted(centerlines) == sorted(signatures), "Every forming band needs its dashed centerline.")
-        labels = root.findall(".//s:g[@data-role='size-label']", NS)
-        require(sorted((float(label.get("data-max-mm")), int(label.get("data-word-index"))) for label in labels)
-                == sorted(signatures), "Nested-size labels do not match the actual curves.")
-        for label in labels:
-            require(float(label.find("s:text", NS).text) == float(label.get("data-max-mm")), "Wrong size label.")
+        require(not root.findall(".//*[@data-role='size-label']"),
+                "Inline size labels must not interrupt forming curves.")
+        require(all(node.get("data-role") == "paper" for node in root.findall(".//*[@fill='white']")),
+                "White masks must not interrupt forming curves.")
     else:
         require(not centerlines, "Unexpected forming centerlines.")
     return expected_pdf
@@ -113,6 +112,8 @@ def check_pdf(path, roots, expected_pages, paper):
                 rect = drawing["rect"]
                 if drawing["fill"] == (1, 1, 1) and rect.width*MM_PER_PT > 200:
                     continue
+                if roots[number-1].get("data-kind") == "forming":
+                    require(drawing["fill"] != (1, 1, 1), "PDF white masks must not interrupt forming curves.")
                 half = (drawing.get("width") or 0)*MM_PER_PT/2
                 require(rect.x0*MM_PER_PT-half > 9 and rect.x1*MM_PER_PT+half < width-9
                         and rect.y0*MM_PER_PT-half > 9 and rect.y1*MM_PER_PT+half < height-9,

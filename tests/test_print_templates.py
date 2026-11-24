@@ -60,6 +60,12 @@ class PrintTemplateTests(unittest.TestCase):
                    max(b[3] for b in boxes)-min(b[2] for b in boxes))
         for info in manifest["pages"]:
             root = ET.parse(self.output/info["file"]).getroot()
+            if info["kind"] == "forming":
+                self.assertFalse(root.findall(".//*[@data-role='size-label']"))
+                self.assertFalse([rect for rect in root.findall(".//s:rect[@fill='white']", NS)
+                                  if rect.get("data-role") != "paper"])
+                captions = [node.text for node in root.findall(".//s:text", NS)]
+                self.assertEqual(captions.count("Inner 35 mm -> outer 80 mm; body sizes."), 4)
             origins = {}
             for group in root.findall(".//s:g[@data-role='drawing']", NS):
                 maximum = float(group.get("data-max-mm"))
@@ -88,7 +94,7 @@ class PrintTemplateTests(unittest.TestCase):
         self.assertEqual(manifest["sizes_mm"], [45, 65])
         self.assertEqual(check_pack(self.output, self.source), (3, 0))
 
-    def test_invalid_sizes_and_dense_labels_fail_without_output(self):
+    def test_invalid_sizes_and_dense_contours_fail_without_output(self):
         for sizes, wires in [([35, 36], [1]), ([81], [1]), ([35.5], [1]),
                              ([35], [float("nan")]), ([35], [1, 1]), ([], [1])]:
             with self.subTest(sizes=sizes, wires=wires), self.assertRaises(ValueError):
@@ -135,7 +141,7 @@ class PrintTemplateTests(unittest.TestCase):
             self.assertEqual(result.exception.code, 0)
             generate(self.source, self.output, sizes=[60], wires=[1], svg_only=True)
 
-    def test_validator_detects_wrong_wire_source_and_labels(self):
+    def test_validator_detects_wrong_wire_source_and_inline_labels(self):
         manifest = generate(self.source, self.output, sizes=[35, 60], wires=[1], svg_only=True)
         filename = self.output/manifest["pages"][0]["file"]
         original = filename.read_bytes()
@@ -158,9 +164,16 @@ class PrintTemplateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Nested sizes"):
             check_pack(self.output, self.source)
         root = ET.fromstring(original)
-        root.find(".//s:g[@data-role='size-label']/s:text", NS).text = "65"
+        label = ET.SubElement(root, f"{{{SVG_NS}}}g", {"data-role": "size-label"})
+        ET.SubElement(label, f"{{{SVG_NS}}}rect", {"x": "50", "y": "50", "width": "4.4",
+                                                 "height": "2.4", "fill": "white"})
+        ET.SubElement(label, f"{{{SVG_NS}}}text").text = "60"
         ET.ElementTree(root).write(filename, encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "Wrong size label"):
+        with self.assertRaisesRegex(ValueError, "Inline size labels"):
+            check_pack(self.output, self.source)
+        label.attrib.pop("data-role")
+        ET.ElementTree(root).write(filename, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "White masks"):
             check_pack(self.output, self.source)
         filename.write_bytes(original)
         self.source.write_bytes(self.source.read_bytes()+b"\n")
@@ -176,6 +189,13 @@ class PrintTemplateTests(unittest.TestCase):
         generate(self.source, self.output, sizes=[35, 60, 80], wires=[1, .9])
         self.assertEqual(check_pack(self.output, self.source, require_pdf=True), (5, 2))
         pdf = self.output/"print-A4.pdf"
+        original_bytes = pdf.read_bytes()
+        with pymupdf.open(pdf) as masked:
+            masked[0].draw_rect(pymupdf.Rect(120, 140, 135, 150), color=None, fill=(1, 1, 1))
+            masked.saveIncr()
+        with self.assertRaisesRegex(ValueError, "PDF white masks"):
+            check_pack(self.output, self.source, require_pdf=True)
+        pdf.write_bytes(original_bytes)
         with pymupdf.open(pdf) as original, pymupdf.open() as scaled:
             for i, original_page in enumerate(original):
                 page = scaled.new_page(width=original_page.rect.width, height=original_page.rect.height)

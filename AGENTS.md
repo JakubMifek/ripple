@@ -143,8 +143,10 @@ failed renderers; native PNG dimensions are checked when available.
   the reference circle. SVG coordinates are millimeters; A4/Letter exports change
   page bounds, not artwork scale. Verify real PDF curves and both calibration
   gauges with `check_print_templates.py --require-pdf`; no raster substitutes.
-  Print/preview directories must be new. Nested labels identify assembly size,
-  not individual loop size. Alignment panels are not a solder/over-under plan.
+  Print/preview directories must be new. Keep size-range captions below the
+  forming curves; never interrupt them with inline size labels or white masks.
+  Captions identify assembly size, not individual loop size.
+  Alignment panels are not a solder/over-under plan.
 
 ## Changes and checks
 

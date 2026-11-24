@@ -20,11 +20,12 @@ The page order is:
 5. **Overlay alignment:** colored cumulative panels at 60 mm / 1.0 mm,
    explaining how to register the four names.
 
-Each nested contour is numbered with the **finished composition's size**,
-not the individual loop's width or height. Choose the same number and wire
-diameter for all four names. Gray bands show actual wire thickness; follow
-their dashed centers. The small white number windows are labels, not gaps
-to cut in the wire. Center crosses and `TOP` marks preserve registration.
+The captions below each section give the **finished composition's size range**,
+not the individual loop's width or height. Count outward from the innermost
+35 mm contour to the outermost 80 mm contour, in 5 mm steps. Choose the same
+contour and wire diameter for all four names. Gray bands show actual wire
+thickness; follow their dashed centers. There are no inline size labels or
+white gaps interrupting the curves. Center crosses and `TOP` marks preserve registration.
 The comparison pages pack sizes out of numerical order to save paper;
 read each label.
 
@@ -95,7 +96,7 @@ that cannot fit at 1:1 instead of quietly shrinking them; very broad or
 off-center source curves may require fewer/smaller sizes.
 
 The checker verifies source hashes, all source cubic controls, common scale,
-wire diameters, size labels, measurements, page order, calibration gauges and
+wire diameters, unobstructed forming guides, measurements, page order, calibration gauges and
 PDF vector coordinates/print margins. `--require-pdf` ensures SVG-only output
 cannot count as a successful PDF check. `--preview-dir` renders both PDF packs
 to PNGs for visual inspection; **print the PDFs, not these inspection images**.

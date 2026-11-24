@@ -155,15 +155,10 @@ def registration(root, origin, top=False):
         text(root, origin.real, origin.imag-4, "TOP", size=2.1, anchor="middle")
 
 
-def label_point(curve):
-    points = [segment.point(t) for segment in curve for t in (0, .25, .5, .75)]
-    return max(points, key=abs)
-
-
 def forming_page(words, bounds, sizes, wire, source_hash):
     root = page(f"Nested forming guides / {wire:g} mm", "ACTUAL SIZE / 100%. Choose the SAME size for all four names. Sizes include wire; bail excluded.",
                 words, source_hash, "forming", wire)
-    for i, (name, curve) in enumerate(words):
+    for i, (name, _) in enumerate(words):
         origin = complex((52, 151)[i % 2], (86, 190)[i // 2])
         left = (12, 111)[i % 2]
         line(root, left, origin.imag-44, left+5, origin.imag-44, width=.7, color=COLORS[i])
@@ -171,20 +166,11 @@ def forming_page(words, bounds, sizes, wire, source_hash):
         for maximum in sizes:
             draw(root, words, bounds, maximum, wire, origin, [i], mode="forming")
         registration(root, origin, top=True)
-        point = label_point(curve)
-        angle = math.degrees(math.atan2(point.imag, point.real))+90
-        angle = (angle+90) % 180-90
-        for maximum in sizes:
-            position = origin+point*scale_for(bounds, maximum, wire)
-            label = element(root, "g", transform=f"translate({position.real},{position.imag}) rotate({angle})",
-                            data_role="size-label", data_max_mm=maximum, data_word_index=i)
-            element(label, "rect", x=-2.2, y=-1.2, width=4.4, height=2.4, fill="white")
-            text(label, 0, .72, f"{maximum:g}", size=2.1, bold=True, anchor="middle")
-        text(root, left, origin.imag+45, f"Inner {sizes[0]:g} mm -> outer {sizes[-1]:g} mm; labels are body sizes.",
+        text(root, left, origin.imag+45, f"Inner {sizes[0]:g} mm -> outer {sizes[-1]:g} mm; body sizes.",
              size=2.5)
-    text(root, 12, 244, "Gray bands show wire diameter. Follow their dashed centers, not an edge. Numbers identify each contour.", size=2.65)
+    text(root, 12, 244, "Gray bands show wire diameter. Follow their dashed centers, not an edge. Count contours from the inside out.", size=2.65)
     text(root, 12, 250, "The little crosses mark the same source center. Keep the printed TOP direction; do not flip the shapes.", size=2.65)
-    text(root, 12, 256, "Check the header gauges in BOTH axes. Short white label windows are annotations, not cuts in the wire.", size=2.65)
+    text(root, 12, 256, "Check the header gauges in BOTH axes before using a sheet.", size=2.65)
     text(root, 12, 266, "Cold forming only: do not solder on paper. Use the matching-wire comparison page for alignment.", size=2.65)
     return root
 
